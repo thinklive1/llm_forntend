@@ -1,4 +1,4 @@
-<script setup>
+<script setup >
 
 
 import {reactive, ref} from "vue";
@@ -29,15 +29,22 @@ const rules = {
 const login1 = () => {
   formRef.value.validate((isValid) => {
     if(isValid) {
-      ElMessage("login")
-      post('/v1/auth/register', {
+      axios.post('/v1/auth/login', {
         username: form.username,
         password: form.password,
-      }, (message) => {
-        ElMessage.success(message)
-        router.push("/home")
-      })
-    } else {
+      },{headers: {
+        'Content-Type': 'application/json' // 设置请求头
+      },
+      withCredentials: true // 如果需要发送 cookie
+    }).then(({data}) => {
+        if (data.code===200) {
+          ElMessage('login success token:' + data.data.token )
+          auth.username = data.data.username
+          localStorage.setItem('token', data.data.token);
+          router.push('/admin')}
+        }).catch(error => { ElMessage(error.response.data.message) })
+    }
+    else {
       ElMessage.warning('请完整填写注册表单内容！')
     }
   })
@@ -62,6 +69,14 @@ function userLogin() {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>管理员登录</title>
   </head>
+
+  <body class="bg-gray-100 flex items-center justify-center min-h-screen">
+  <div class="w-full max-w-md bg-white rounded-xl shadow-lg p-8 space-y-6">
+    <div>
+      <h1 class="text-center text-2xl font-bold text-gray-800">大模型代理服务</h1>
+      <h2 class="mt-2 text-center text-lg font-semibold text-gray-700">管理员注册</h2>
+      <p class="mt-1 text-center text-sm text-gray-500">欢迎回来，请输入您的凭证</p>
+    </div>
   <div style="margin-top: 50px">
     <el-form :model="form" :rules="rules" ref="formRef">
       <el-form-item prop="username">
@@ -75,15 +90,17 @@ function userLogin() {
         </el-input>
       </el-form-item>
 
-  <div style="margin-top: 80px">
-    <el-button style="width: 270px" type="warning" @click="login1" plain>登陆</el-button>
+  <div style="margin-top: 20px;display: flex; flex-direction: column; align-items: center;">
+    <el-button type="primary" style="width: 270px" @click="login1" plain>登陆</el-button>
   </div>
-  <div style="margin-top: 20px">
+  <div style="margin-top: 20px;display: flex; justify-content: center; flex-direction: row; align-items: center;">
     <span style="font-size: 14px;line-height: 15px;color: grey">没有账号? </span>
     <el-link type="primary" style="translate: 0 -2px" @click="router.push('/register')">立即注册</el-link>
   </div>
   </el-form>
   </div>
+  </div>
+  </body>
 
 </template>
 

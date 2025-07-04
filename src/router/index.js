@@ -1,8 +1,9 @@
 import { createRouter,createWebHashHistory } from "vue-router";
-import HomeView from '@/components/HomeView.vue'
 import ErrorView from '@/components/ErrorView.vue'
 import LoginView from "@/components/LoginView.vue";
 import RegisterView from "@/components/RegisterView.vue";
+import AdminView from "@/components/AdminView.vue";
+import {ElMessage} from "element-plus";
 
 const routes = [
     {
@@ -18,6 +19,10 @@ const routes = [
         component:RegisterView
     },
     {
+        path:'/admin',
+        component:AdminView
+    },
+    {
         path:'/errors',
         component:ErrorView
     },
@@ -31,5 +36,19 @@ const router = createRouter({
     history:createWebHashHistory(),
     routes
 })
+
+//会递归调用，注意！！！
+router.beforeEach((to, from, next) => {
+    const token = localStorage.getItem('token');
+
+    if (to.path==='/register' || to.path==='/login') {
+        next(); // 跳转到首页
+    } else if (token===null || token==='' || token=== undefined ) {
+        alert('请先登陆')
+        ElMessage('请先登陆')
+        next('login'); // 继续导航
+    }
+    else {next()}
+});
 
 export default router
