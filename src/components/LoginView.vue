@@ -45,7 +45,7 @@ const login1 = () => {
         }).catch(error => { ElMessage(error.response.data.message) })
     }
     else {
-      ElMessage.warning('请完整填写注册表单内容！')
+      ElMessage.warning('请完整填写登陆表单内容！')
     }
   })
 }
@@ -74,7 +74,7 @@ function userLogin() {
   <div class="w-full max-w-md bg-white rounded-xl shadow-lg p-8 space-y-6">
     <div>
       <h1 class="text-center text-2xl font-bold text-gray-800">大模型代理服务</h1>
-      <h2 class="mt-2 text-center text-lg font-semibold text-gray-700">管理员注册</h2>
+      <h2 class="mt-2 text-center text-lg font-semibold text-gray-700">管理员登陆</h2>
       <p class="mt-1 text-center text-sm text-gray-500">欢迎回来，请输入您的凭证</p>
     </div>
   <div style="margin-top: 50px">

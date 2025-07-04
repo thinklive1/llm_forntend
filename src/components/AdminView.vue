@@ -68,7 +68,9 @@ const openModel = () => {
 
 const closeModel = () => {
   isModalOpen.value = false;
-  is_update = false;//退出编辑界面时重置
+  if (is_update) {//如果退出的是编辑界面，需要重置
+    is_update = false;
+  }
 };
 
 
@@ -142,6 +144,7 @@ const updateModel = ()=>{
   }).then(({data}) => {
     if (data.code===200) {
       ElMessage('update_model success. modelname is '+data.data.displayName);
+      clean_model_info(model_info)
       closeModel()
     }
   }).catch(error => { ElMessage('error:'+error.response.data.message) })
@@ -191,7 +194,7 @@ const deleteModel = (i)=>{
       <div v-if="isModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
         <div class="modal-overlay absolute inset-0 bg-black opacity-50"></div>
         <div class="modal-content bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 p-6 relative">
-          <h2 id="modal-title" @click="post_model" class="text-xl font-bold mb-4">注册新模型</h2>
+          <h2 id="modal-title" @click="post_model" class="text-xl font-bold mb-4">编辑模型信息</h2>
           <form id="model-form">
             <input type="hidden" id="model-id-input">
             <div class="grid grid-cols-2 gap-4 mb-4">
@@ -206,7 +209,7 @@ const deleteModel = (i)=>{
             </div>
             <div class="mb-4">
               <label for="apiKey" class="block text-sm font-medium text-gray-700 mb-1">API 密钥</label>
-              <input type="password" v-model="model_info.apiKey" id="apiKey" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="新增时必填，编辑时留空则不更新">
+              <input type="text" v-model="model_info.apiKey" id="apiKey" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="新增时必填，编辑时留空则不更新">
             </div>
             <div class="mb-4">
               <label for="priority" class="block text-sm font-medium text-gray-700 mb-1">优先级</label>
@@ -215,7 +218,7 @@ const deleteModel = (i)=>{
             </div>
             <div class="mb-4">
               <label for="baseurl" class="block text-sm font-medium text-gray-700 mb-1">模型 url</label>
-              <input type="password" v-model="model_info.urlBase" id="baseurl" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="调用模型的url">
+              <input type="url" v-model="model_info.urlBase" id="baseurl" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="调用模型的url">
             </div>
             <div class="mb-6">
               <label class="block text-sm font-medium text-gray-700 mb-2">支持的功能</label>

@@ -8,6 +8,9 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig({
   publicPath: "./",
+  devServer: {
+    port: 5173,
+  },
   plugins: [
     vue(),
     vueDevTools(),

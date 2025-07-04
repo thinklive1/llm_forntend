@@ -5,6 +5,7 @@ import {post} from "@/net/index.js";
 import router from "@/router/index.js";
 import {ElMessage} from "element-plus";
 import axios from "axios";
+import {auth} from "@/stores/index.js";
 
 const validateUsername = (rule, value, callback) => {
   if (value === '') {
@@ -57,7 +58,7 @@ const formRef = ref()
 const register = () => {
   formRef.value.validate((isValid) => {
     if(isValid) {
-      axios.post('http://localhost:8080/v1/auth/register', {
+      axios.post('/v1/auth/register', {
         username: form.username,
         password: form.password,
         email: form.email,
@@ -65,7 +66,12 @@ const register = () => {
           'Content-Type': 'application/json', // 设置请求头
         },
         withCredentials: true // 如果需要发送 cookie
-      }).catch(error => { ElMessage(error.response.data.message) })
+      }).then(({data}) => {
+        if (data.code===200) {
+          ElMessage('注册成功，跳转到登陆页面');
+          router.push('/login')}
+      })
+      .catch(error => { ElMessage(error.response.data.message) })
     }
     else {
       ElMessage.warning('请完整填写注册表单内容！')
@@ -92,7 +98,7 @@ const register = () => {
       <el-form :model="form" :rules="rules" ref="formRef">
         <el-form-item prop="username">
           <label for="email" class="block text-sm font-medium text-gray-700">用户名</label>
-          <el-input v-model="form.username" :maxlength="8" type="text" placeholder="用户名">
+          <el-input v-model="form.username" :maxlength="50" type="text" placeholder="用户名">
           </el-input>
         </el-form-item>
         <el-form-item prop="password">

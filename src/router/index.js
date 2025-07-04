@@ -42,7 +42,7 @@ router.beforeEach((to, from, next) => {
     const token = localStorage.getItem('token');
 
     if (to.path==='/register' || to.path==='/login') {
-        next(); // 跳转到首页
+        next();
     } else if (token===null || token==='' || token=== undefined ) {
         alert('请先登陆')
         ElMessage('请先登陆')
