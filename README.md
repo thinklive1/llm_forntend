@@ -1,6 +1,18 @@
 # llm_forntend
 
-This template should help get you started developing with Vue 3 in Vite.
+已完成：
+
+- 登陆注册与鉴权（开发阶段为了方便jwt令牌先存在本地）
+- 模型管理界面的增删查改
+- 简单的404页面
+
+后续：
+
+- 主要：
+  - 对接模型
+- 细节
+  - 更丰富的报错
+  - 其他错误界面
 
 ## Recommended IDE Setup
 
