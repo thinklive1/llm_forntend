@@ -4,6 +4,11 @@ import router from "@/router";
 
 const authItemName = "authorize"
 
+const error_report = ({res}) => {
+    console.log(res.message);
+    ElMessage(res.message);
+}
+
 const accessHeader = () => {
     return {
         'Authorization': `Bearer ${takeAccessToken()}`
@@ -74,19 +79,6 @@ function internalGet(url, headers, success, failure, error = defaultError){
     }).catch(err => error(err))
 }
 
-function login(username, password, remember, success, failure = defaultFailure){
-    internalPost('/v1/auth/login', {
-        username: username,
-        password: password
-    }, {
-        'Content-Type': 'application/x-www-form-urlencoded'
-    }, (data) => {
-        storeAccessToken( data.token)
-        ElMessage.success(`登录成功，欢迎 ${data.username} 来到我们的系统`)
-        success(data)
-    }, failure)
-}
-
 function post(url, data, success, failure = defaultFailure) {
     internalPost(url, data, accessHeader() , success, failure)
 }
@@ -107,4 +99,4 @@ function unauthorized() {
     return !takeAccessToken()
 }
 
-export { post, get, login, logout, unauthorized,takeAccessToken }
+export { post, get, error_report, logout, unauthorized,takeAccessToken }

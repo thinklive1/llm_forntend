@@ -1,7 +1,7 @@
 <script setup>
 
 import {reactive, ref} from "vue";
-import {post} from "@/net/index.js";
+import {error_report, post} from "@/net/index.js";
 import router from "@/router/index.js";
 import {ElMessage} from "element-plus";
 import axios from "axios";
@@ -67,11 +67,13 @@ const register = () => {
         },
         withCredentials: true // 如果需要发送 cookie
       }).then(({data}) => {
-        if (data.code===200) {
-          ElMessage('注册成功，跳转到登陆页面');
-          router.push('/login')}
-      })
-      .catch(error => { ElMessage(error.response.data.message) })
+            if (data.code===200) {
+              ElMessage('注册成功，跳转到登陆页面');
+              router.push('/login')}
+            else error_report(data)
+          }
+      )
+          .catch(error => { ElMessage(error.response.data.message) })
     }
     else {
       ElMessage.warning('请完整填写注册表单内容！')

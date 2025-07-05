@@ -2,7 +2,7 @@
 
 import {ElMessage} from "element-plus";
 import axios from "axios";
-import {takeAccessToken} from "@/net/index.js";
+import {error_report, takeAccessToken} from "@/net/index.js";
 import {reactive, ref} from "vue";
 
 //数据区
@@ -55,6 +55,7 @@ const get_model= (id) => { //请求单个模型信息，暂时用不到
       ElMessage('get_model success. modelid is '+data.data.id);
       model_info.value = data.data;
     }
+    else error_report(data)
   }).catch(error => { ElMessage('error:'+error.response.data.message) })
 }
 
@@ -74,6 +75,7 @@ const get_models = () => { //得到当前分页（默认为1）的模型信息�
       pagination.value.row_page = data.data.size;
       pagination.value.pages_num = data.data.pages;
     }
+    else error_report(data)
   }).catch(error => { ElMessage(error.response.data.message) })
 }
 get_models();
@@ -92,6 +94,7 @@ const post_model = () => {//更新和新建模型合用的入口，更新会用�
       get_models()
       closeModel()
     }
+    else error_report(data)
   }).catch(error => { ElMessage('error:'+error.response.data.message) })
 }
 
@@ -115,6 +118,7 @@ const updateModel = ()=>{
       get_models();
       closeModel()
     }
+    else error_report(data)
   }).catch(error => { ElMessage('error:'+error.response.data.message) })
 }
 
@@ -132,6 +136,7 @@ const deleteModel = (i)=>{
       get_models()
       clean_model_info(model_info.value);
     }
+    else error_report(data)
   }).catch(error => { ElMessage('error:'+error.response.data.message) })
 }
 
@@ -162,7 +167,6 @@ const handleNextClick = (value) => {
   pagination.value.current_page = value
   get_page()
 }
-
 
 </script>
 
