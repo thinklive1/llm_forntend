@@ -5,6 +5,7 @@ import axios from "axios";
 import {takeAccessToken} from "@/net/index.js";
 import {reactive, ref} from "vue";
 
+//数据区
 const CAPABILITY_MAP = {
   'text-to-text': '文生文',
   'text-to-image': '文生图',
@@ -12,67 +13,8 @@ const CAPABILITY_MAP = {
   'image-to-image': '图生图',
 };
 
-const isModalOpen = ref(false);
-
+const isModalOpen = ref(false);//用于弹出编辑窗口
 let is_update = false;//区分更新模型和创建模型
-
-let model_info = reactive({
-  id: '',
-  displayName: '',
-  modelIdentifier: '',
-  urlBase: '',
-  apiKey: '',
-  capabilities: [],
-  priority: ''
-});
-
-const clean_model_info = (obj) => {
-  Object.keys(obj).forEach(key => {
-    delete obj[key];
-  });
-}
-
-const get_model= (id) => {
-  axios.get('/v1/models/'+id,model_info, {headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${takeAccessToken()}`
-    },
-    withCredentials: true, // 如果需要发送 cookie
-  }).then(({data}) => {
-    if (data.code===200) {
-      ElMessage('get_model success. modelid is '+data.data.id);
-      model_info = data.data;
-    }
-  }).catch(error => { ElMessage('error:'+error.response.data.message) })
-}
-
-const post_model = () => {
-  if (is_update) {updateModel();return}
-  axios.post('/v1/models',model_info, {headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${takeAccessToken()}`
-    },
-    withCredentials: true, // 如果需要发送 cookie
-  }).then(({data}) => {
-    if (data.code===200) {
-      ElMessage('creat_model success. modelid is '+data.data.id);
-      get_models()
-      closeModel()
-    }
-  }).catch(error => { ElMessage('error:'+error.response.data.message) })
-}
-
-const openModel = () => {
-  isModalOpen.value = true;
-};
-
-const closeModel = () => {
-  isModalOpen.value = false;
-  if (is_update) {//如果退出的是编辑界面，需要重置
-    is_update = false;
-  }
-};
-
 
 const pagination = ref({
   current_page: 1,	//	当前页码，此处默认为第一页
@@ -82,16 +24,44 @@ const pagination = ref({
   data: [],			//	存储的展示数据条数，由row_page决定至多有多少条数据，例如此处row_page定义了20，那么data最多有20条数据
 })
 
-let models= ref({
+const model_info = ref({//编辑模型信息时的表单信息,默认保存最后一次编辑时的信息
+  id: '',
+  displayName: '',
+  modelIdentifier: '',
+  urlBase: '',
+  apiKey: '',
+  capabilities: [],
+  priority: ''
+});
 
+let models= ref({
 })
 
+//函数区
+const clean_model_info = (obj) => {//用于提交模型后清空模型表单
+  Object.keys(obj).forEach(key => {
+    delete obj[key];
+  });
+}
 
-
-const get_models = () => {
-  axios.get('/v1/models', {headers: {
-      'Content-Type': 'application/json', // 设置请求头
+const get_model= (id) => { //请求单个模型信息，暂时用不到
+  axios.get('/v1/models/'+id,model_info.value, {headers: {
+      'Content-Type': 'application/json',
       'Authorization': `Bearer ${takeAccessToken()}`
+    },
+    withCredentials: true, // 如果需要发送 cookie
+  }).then(({data}) => {
+    if (data.code===200) {
+      ElMessage('get_model success. modelid is '+data.data.id);
+      model_info.value = data.data;
+    }
+  }).catch(error => { ElMessage('error:'+error.response.data.message) })
+}
+
+const get_models = () => { //得到当前分页（默认为1）的模型信息，会在进入页面（需要鉴权）后调用一次
+  axios.get('/v1/models', {headers: {
+      'Content-Type': 'application/json', // 设置数据格式
+      'Authorization': `Bearer ${takeAccessToken()}`//令牌
     },
     withCredentials: true, // 如果需要发送 cookie
     params:{'pageNum': pagination.value.current_page}
@@ -108,7 +78,73 @@ const get_models = () => {
 }
 get_models();
 
-const get_page = () => {
+const post_model = () => {//更新和新建模型合用的入口，更新会用调用另一个函数
+  if (is_update) {updateModel();return}
+  axios.post('/v1/models',model_info.value, {headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${takeAccessToken()}`
+    },
+    withCredentials: true, // 如果需要发送 cookie
+  }).then(({data}) => {
+    if (data.code===200) {
+      ElMessage('creat_model success. modelid is '+data.data.id);
+      clean_model_info(model_info.value);
+      get_models()
+      closeModel()
+    }
+  }).catch(error => { ElMessage('error:'+error.response.data.message) })
+}
+
+const editModel = (i)=>{//用于编辑模型
+  model_info.value =Object.assign({},models.value[i]);//能够点击编辑模型时，这个模型对象必然存在，因此不需要先Get
+  is_update = true;//表示此时是在编辑而不是创建模型，唯一能设置false的两个函数只有编辑界面的两个按钮对应函数
+  isModalOpen.value = true;
+}
+
+const updateModel = ()=>{
+  is_update = false;
+  axios.put('/v1/models/'+model_info.value.id,model_info.value, {headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${takeAccessToken()}`
+    },
+    withCredentials: true, // 如果需要发送 cookie
+  }).then(({data}) => {
+    if (data.code===200) {
+      ElMessage('update_model success. modelname is '+data.data.displayName);
+      clean_model_info(model_info.value)
+      get_models();
+      closeModel()
+    }
+  }).catch(error => { ElMessage('error:'+error.response.data.message) })
+}
+
+const deleteModel = (i)=>{
+  model_info.value = models.value[i];
+  axios.delete('/v1/models/'+model_info.value.id,model_info.value, {headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${takeAccessToken()}`
+    },
+    withCredentials: true, // 如果需要发送 cookie
+  }).then(({data}) => {
+    if (data.code===200) {
+      ElMessage('delete_model success');
+      models.value.splice(i, 1);
+      get_models()
+      clean_model_info(model_info.value);
+    }
+  }).catch(error => { ElMessage('error:'+error.response.data.message) })
+}
+
+const openModel = () => { //弹出编辑窗口
+  isModalOpen.value = true;
+};
+
+const closeModel = () => { //关闭编辑窗口
+  isModalOpen.value = false;
+  is_update = false;//如果此时进行的是编辑而不是新增，需要重置，等价于直接设置false
+};
+
+const get_page = () => {//不排除会加一些逻辑，先放着……,下面三个函数同理
   get_models();
 }
 
@@ -127,45 +163,6 @@ const handleNextClick = (value) => {
   get_page()
 }
 
-
-const editModel = (i)=>{//用于编辑模型
-  model_info = models.value[i];//能够点击编辑模型时，这个模型对象必然存在，因此不需要先Get
-  is_update = true;//表示此时是在编辑而不是创建模型，唯一能设置false的两个函数只有编辑界面的两个按钮对应函数
-  isModalOpen.value = true;
-}
-
-const updateModel = ()=>{
-  is_update = false;
-  axios.put('/v1/models/'+model_info.id,model_info, {headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${takeAccessToken()}`
-    },
-    withCredentials: true, // 如果需要发送 cookie
-  }).then(({data}) => {
-    if (data.code===200) {
-      ElMessage('update_model success. modelname is '+data.data.displayName);
-      clean_model_info(model_info)
-      closeModel()
-    }
-  }).catch(error => { ElMessage('error:'+error.response.data.message) })
-}
-
-const deleteModel = (i)=>{
-  model_info = models.value[i];
-  axios.delete('/v1/models/'+model_info.id,model_info, {headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${takeAccessToken()}`
-    },
-    withCredentials: true, // 如果需要发送 cookie
-  }).then(({data}) => {
-    if (data.code===200) {
-      ElMessage('delete_model success');
-      models.value.splice(i, 1);
-      get_models()
-      clean_model_info(model_info);
-    }
-  }).catch(error => { ElMessage('error:'+error.response.data.message) })
-}
 
 </script>
 
@@ -224,10 +221,10 @@ const deleteModel = (i)=>{
               <label class="block text-sm font-medium text-gray-700 mb-2">支持的功能</label>
               <el-checkbox-group v-model="model_info.capabilities">
                 <div class="grid grid-cols-2 gap-2 p-3 border rounded-md">
-                  <el-checkbox label="text-to-text">文生文</el-checkbox>
-                  <el-checkbox label="text-to-image">文生图</el-checkbox>
-                  <el-checkbox label="image-to-text">图生文</el-checkbox>
-                  <el-checkbox label="image-to-image">图生图</el-checkbox>
+                  <el-checkbox label="t2t" value="text-to-text">文生文</el-checkbox>
+                  <el-checkbox label="t2i" value="text-to-image">文生图</el-checkbox>
+                  <el-checkbox label="i2t" value="image-to-text">图生文</el-checkbox>
+                  <el-checkbox label="i2i" value="image-to-image">图生图</el-checkbox>
                 </div>
               </el-checkbox-group>
             </div>
