@@ -13,6 +13,30 @@ const CAPABILITY_MAP = {
   'image-to-image': '图生图',
 };
 
+const rules = {
+  displayName: [
+    { required: true, message: '请输入模型名称', trigger: ['blur', 'change'] },
+    { min: 2, max: 50, message: '长度必须在2-50个字符之间', trigger: ['blur', 'change'] },
+  ],
+  modelIdentifier: [
+    { required: true, message: '请输入模型标识', trigger: ['blur','change'] },
+    { min: 2, max: 50, message: '长度必须在2-50个字符之间', trigger: ['blur', 'change'] }
+  ],
+  urlBase: [
+    { required: true, message: '请输入模型url', trigger: 'blur' },
+    {type: 'url', message: '请输入合法url', trigger: ['blur', 'change']}
+  ],
+  apiKey: [
+    {  message: '请输入模型apikey', trigger: 'blur' },
+    {type: 'string', message: '请输入合法的key值', trigger: ['blur', 'change']}
+  ],
+  priority: [
+    { required: true, message: '请输入模型优先级', trigger: 'blur' },
+    {type: 'number', message: '请输入合法的优先级', trigger: ['blur', 'change']}
+  ],
+}
+
+
 const isModalOpen = ref(false);//用于弹出编辑窗口
 let is_update = false;//区分更新模型和创建模型
 
@@ -24,6 +48,7 @@ const pagination = ref({
   data: [],			//	存储的展示数据条数，由row_page决定至多有多少条数据，例如此处row_page定义了20，那么data最多有20条数据
 })
 
+const model_ref = ref()
 const model_info = ref({//编辑模型信息时的表单信息,默认保存最后一次编辑时的信息
   id: '',
   displayName: '',
@@ -31,7 +56,7 @@ const model_info = ref({//编辑模型信息时的表单信息,默认保存最�
   urlBase: '',
   apiKey: '',
   capabilities: [],
-  priority: ''
+  priority: 1,
 });
 
 let models= ref({
@@ -80,7 +105,8 @@ const get_models = () => { //得到当前分页（默认为1）的模型信息�
 }
 get_models();
 
-const post_model = () => {//更新和新建模型合用的入口，更新会用调用另一个函数
+const post_model_impl = () => {
+  console.log('Model info:', model_info.value); // 检查 model_info
   if (is_update) {updateModel();return}
   axios.post('/v1/models',model_info.value, {headers: {
       'Content-Type': 'application/json',
@@ -94,8 +120,18 @@ const post_model = () => {//更新和新建模型合用的入口，更新会用�
       get_models()
       closeModel()
     }
-    else error_report(data)
-  }).catch(error => { ElMessage('error:'+error.response.data.message) })
+    else ElMessage('somthing wrong')
+  }).catch(error => { ElMessage('error:')})
+}
+
+const post_model = () => {//更新和新建模型合用的入口，更新会用调用另一个函数
+  let is_info_valid = true;
+  model_ref.value.validate((isvalid)=> {
+        if (isvalid) {
+          post_model_impl()
+        } else ElMessage('请完整填写表单')
+      }
+  )
 }
 
 const editModel = (i)=>{//用于编辑模型
@@ -196,30 +232,42 @@ const handleNextClick = (value) => {
         <div class="modal-overlay absolute inset-0 bg-black opacity-50"></div>
         <div class="modal-content bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 p-6 relative">
           <h2 id="modal-title" @click="post_model" class="text-xl font-bold mb-4">编辑模型信息</h2>
-          <form id="model-form">
-            <input type="hidden" id="model-id-input">
+          <el-form :model="model_info" :rules="rules" ref="model_ref" id="model-form">
+            <input type="hidden" id="odel-id-input">
             <div class="grid grid-cols-2 gap-4 mb-4">
               <div>
                 <label for="name" class="block text-sm font-medium text-gray-700 mb-1">模型名称</label>
-                <input type="text" v-model="model_info.displayName" id="name" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="例如：OpenAI GPT-4o" required>
+                <el-form-item prop="displayName">
+                <el-input type="text" size="small" :maxlength="50" :minlength="2" v-model="model_info.displayName" id="name" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="例如：OpenAI GPT-4o" required> </el-input>
+                  </el-form-item>
               </div>
               <div>
                 <label for="modelId" class="block text-sm font-medium text-gray-700 mb-1">模型标识 (Model ID)</label>
-                <input type="text" v-model="model_info.modelIdentifier" id="modelId" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="例如：gpt-4o" required>
+                <el-form-item prop="modelIdentifier">
+                  <el-input type="text" size="small" :maxlength="50" :minlength="2" v-model="model_info.modelIdentifier" id="modelId" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="例如：gpt-4o" required> </el-input>
+                </el-form-item>
               </div>
             </div>
+            <div class="grid grid-cols-2 gap-4 mb-4">
             <div class="mb-4">
               <label for="apiKey" class="block text-sm font-medium text-gray-700 mb-1">API 密钥</label>
-              <input type="text" v-model="model_info.apiKey" id="apiKey" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="新增时必填，编辑时留空则不更新">
+              <el-form-item prop="apiKey">
+              <el-input type="password" size="small" v-model="model_info.apiKey" id="apiKey" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="新增时必填，编辑时留空则不更新"></el-input>
+              </el-form-item>
             </div>
             <div class="mb-4">
               <label for="priority" class="block text-sm font-medium text-gray-700 mb-1">优先级</label>
-              <input type="number"  v-model="model_info.priority" id="priority" class="w-full border-gray-300 rounded-md shadow-sm" value="99" min="1" required>
+              <el-form-item prop="priority">
+                <el-input-number v-model="model_info.priority" style="width: 100%;" controls-position="right" size="small" />
+              </el-form-item>
               <p class="text-xs text-gray-500 mt-1">最小为1,数字越小，优先级越高。</p>
+            </div>
             </div>
             <div class="mb-4">
               <label for="baseurl" class="block text-sm font-medium text-gray-700 mb-1">模型 url</label>
-              <input type="url" v-model="model_info.urlBase" id="baseurl" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="调用模型的url">
+              <el-form-item prop="urlBase">
+              <el-input type="text" size="small" v-model="model_info.urlBase" id="baseurl" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="调用模型的url"></el-input>
+              </el-form-item>
             </div>
             <div class="mb-6">
               <label class="block text-sm font-medium text-gray-700 mb-2">支持的功能</label>
@@ -234,9 +282,9 @@ const handleNextClick = (value) => {
             </div>
             <div class="flex justify-end space-x-3">
               <button type="button" @click="closeModel" id="cancel-btn" class="bg-gray-200 text-gray-800 font-semibold px-4 py-2 rounded-lg hover:bg-gray-300">取消</button>
-              <button type="submit" @click="post_model" class="bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700">提交模型</button>
+              <button type="button" @click="post_model" class="bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700">提交模型</button>
             </div>
-          </form>
+          </el-form>
         </div>
       </div>
 

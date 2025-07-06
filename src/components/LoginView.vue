@@ -6,7 +6,12 @@ import {ElMessage} from "element-plus";
 import axios from "axios";
 import router from "@/router/index.js";
 import { auth } from '@/stores/index.js'
-import {error_report, } from '@/net/index.js'
+import {cooldown, error_report,} from '@/net/index.js'
+
+if (auth.username!== '' || auth.username !== null) {
+  ElMessage('您已登陆，跳转至管理界面')
+  router.push('/admin')
+}
 
 const formRef = ref()
 const form = reactive({
@@ -16,16 +21,7 @@ const form = reactive({
 
 let last_req_time = ref(0);
 
-const cooldown = () => {
-  last_req_time.value=10;
-  const handler = setInterval(() => {
-    console.log('start interval');
-    last_req_time.value--
-    if (last_req_time.value === 0) {
-      clearInterval(handler)
-    }
-  }, 1000)
-}
+
 
 const rules = {
   username: [
@@ -42,7 +38,7 @@ const login1 = () => {
   formRef.value.validate((isValid) => {
     if(isValid) {
       if (last_req_time.value === 0) {
-        //cooldown();//设置请求cd，开发阶段默认不启用，先注释掉
+        //cooldown(last_req_time);//设置请求cd，开发阶段默认不启用，先注释掉
         axios.post('/v1/auth/login', {
           username: form.username,
           password: form.password,

@@ -1,7 +1,7 @@
 <script setup>
 
 import {reactive, ref} from "vue";
-import {error_report, post} from "@/net/index.js";
+import {cooldown, error_report, post} from "@/net/index.js";
 import router from "@/router/index.js";
 import {ElMessage} from "element-plus";
 import axios from "axios";
@@ -53,11 +53,14 @@ const rules = {
 }
 
 
+let last_req_time = ref(0);
 const formRef = ref()
 
 const register = () => {
   formRef.value.validate((isValid) => {
     if(isValid) {
+      if (last_req_time.value === 0) {
+      //cooldown(last_req_time);//设置请求cd，开发阶段默认不启用，先注释掉
       axios.post('/v1/auth/register', {
         username: form.username,
         password: form.password,
@@ -72,8 +75,9 @@ const register = () => {
               router.push('/login')}
             else error_report(data)
           }
-      )
-          .catch(error => { ElMessage(error.response.data.message) })
+      ).catch(error => { ElMessage(error.response.data.message) })
+    }
+      else ElMessage.warning('操作过于频繁，请'+last_req_time.value+'秒后继续操作')
     }
     else {
       ElMessage.warning('请完整填写注册表单内容！')

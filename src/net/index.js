@@ -99,4 +99,15 @@ function unauthorized() {
     return !takeAccessToken()
 }
 
-export { post, get, error_report, logout, unauthorized,takeAccessToken }
+const cooldown = (time) => {
+    time.value=10;
+    const handler = setInterval(() => {
+        console.log('start interval');
+        time.value--
+        if (time.value === 0) {
+            clearInterval(handler)
+        }
+    }, 1000)
+}
+
+export { post, get, error_report, logout, unauthorized,takeAccessToken,cooldown }
