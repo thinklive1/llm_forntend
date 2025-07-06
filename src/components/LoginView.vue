@@ -14,6 +14,18 @@ const form = reactive({
   password: '',
 });
 
+let last_req_time = ref(0);
+
+const cooldown = () => {
+  last_req_time.value=10;
+  const handler = setInterval(() => {
+    console.log('start interval');
+    last_req_time.value--
+    if (last_req_time.value === 0) {
+      clearInterval(handler)
+    }
+  }, 1000)
+}
 
 const rules = {
   username: [
@@ -29,23 +41,31 @@ const rules = {
 const login1 = () => {
   formRef.value.validate((isValid) => {
     if(isValid) {
-      axios.post('/v1/auth/login', {
-        username: form.username,
-        password: form.password,
-      },{headers: {
-          'Content-Type': 'application/json' // 设置请求头
-        },
-        withCredentials: true // 如果需要发送 cookie
-      }).then(({data}) => {
-            if (data.code===200) {
-              ElMessage('login success token:' + data.data.token )
-              auth.username = data.data.username
-              localStorage.setItem('token', data.data.token);
-              router.push('/admin')}
-            else error_report(data)
-          }
-      ).catch(error => { ElMessage(error.response.data.message) })
-    }
+      if (last_req_time.value === 0) {
+        //cooldown();//设置请求cd，开发阶段默认不启用，先注释掉
+        axios.post('/v1/auth/login', {
+          username: form.username,
+          password: form.password,
+        }, {
+          headers: {
+            'Content-Type': 'application/json' // 设置请求头
+          },
+          withCredentials: true // 如果需要发送 cookie
+        }).then(({data}) => {
+              if (data.code === 200) {
+                ElMessage('login success token:' + data.data.token)
+                auth.username = data.data.username
+                localStorage.setItem('token', data.data.token);
+                router.push('/admin')
+              } else error_report(data)
+            }
+        ).catch(error => {
+          ElMessage(error.response.data.message)
+        })
+      }
+      else {
+        ElMessage.warning('操作过于频繁，请'+last_req_time.value+'秒后继续操作')
+      }}
     else {
       ElMessage.warning('请完整填写登陆表单内容！')
     }
