@@ -125,7 +125,6 @@ const post_model_impl = () => {
 }
 
 const post_model = () => {//更新和新建模型合用的入口，更新会用调用另一个函数
-  let is_info_valid = true;
   model_ref.value.validate((isvalid)=> {
         if (isvalid) {
           post_model_impl()
@@ -140,7 +139,15 @@ const editModel = (i)=>{//用于编辑模型
   isModalOpen.value = true;
 }
 
-const updateModel = ()=>{
+const updateModel = ()=> {
+  model_ref.value.validate((isvalid)=> {
+        if (isvalid) {
+          updateModel_impl();
+        } else ElMessage('请完整填写表单')
+      }
+  )
+}
+const updateModel_impl = ()=>{
   is_update = false;
   axios.put('/v1/models/'+model_info.value.id,model_info.value, {headers: {
       'Content-Type': 'application/json',
