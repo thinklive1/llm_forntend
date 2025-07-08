@@ -128,7 +128,7 @@ const register = () => {
     </div>
     <div style="margin-top: 20px;display: flex; justify-content: center; flex-direction: row; align-items: center;">
       <span style="font-size: 14px;line-height: 15px;color: grey">已有账号? </span>
-      <el-link type="primary" style="translate: 0 -2px" @click="router.push('/')">立即登录</el-link>
+      <el-link type="primary" style="translate: 0 -2px" @click="router.push('/login')">立即登录</el-link>
     </div>
   </div>
   </body>

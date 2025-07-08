@@ -2,7 +2,7 @@ import axios from "axios";
 import {ElMessage} from "element-plus";
 import router from "@/router";
 
-const authItemName = "authorize"
+const authItemName = "token"
 
 const error_report = ({res}) => {
     console.log(res.message);
@@ -46,11 +46,11 @@ function storeAccessToken(remember, token, expire){
         sessionStorage.setItem(authItemName, str)
 }
 
-function deleteAccessToken(redirect = false) {
+function deleteAccessToken(redirect = true) {
     localStorage.removeItem(authItemName)
     sessionStorage.removeItem(authItemName)
     if(redirect) {
-        router.push('/')
+        router.push('/login')
     }
 }
 
@@ -83,12 +83,9 @@ function post(url, data, success, failure = defaultFailure) {
     internalPost(url, data, accessHeader() , success, failure)
 }
 
-function logout(success, failure = defaultFailure){
-    get('/api/auth/logout', () => {
+function logout(){
         deleteAccessToken()
         ElMessage.success(`退出登录成功，欢迎您再次使用`)
-        success()
-    }, failure)
 }
 
 function get(url, success, failure = defaultFailure) {

@@ -2,7 +2,7 @@
 
 import {ElMessage} from "element-plus";
 import axios from "axios";
-import {error_report, takeAccessToken} from "@/net/index.js";
+import {error_report, logout, takeAccessToken} from "@/net/index.js";
 import {reactive, ref} from "vue";
 
 //数据区
@@ -353,6 +353,10 @@ const handleNextClick = (value) => {
                         @next-click="handleNextClick"
                         @current-change="handleCurrentChangeClick"
         />
+
+        <button style="position: absolute; bottom: 10px; right: 10px;" id="add-new-model-btn" @click="logout()" class="bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center">
+          <span class="ml-2">注销</span>
+        </button>
       </div>
     </main>
   </div>

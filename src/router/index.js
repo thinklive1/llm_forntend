@@ -41,11 +41,11 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
     const token = localStorage.getItem('token');
 
-    if (to.path==='/register' || to.path==='/login') {
+    if (to.path!== '/admin') {
         next();
-    } else if (token===null || token==='' || token=== undefined ) {
+    } else if (to.path === '/login') {next()}
+    else if (token===null || token==='' || token=== undefined ) {
         alert('请先登陆')
-        ElMessage('请先登陆')
         next('login'); // 继续导航
     }
     else {next()}

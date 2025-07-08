@@ -8,10 +8,12 @@ import router from "@/router/index.js";
 import { auth } from '@/stores/index.js'
 import {cooldown, error_report,} from '@/net/index.js'
 
-if (auth.username!== '' || auth.username !== null) {
+/*const token = localStorage.getItem('token');
+if (token!==null || token!=='' || token!== undefined ) {
+  ElMessage(token)
   ElMessage('您已登陆，跳转至管理界面')
   router.push('/admin')
-}
+}*/
 
 const formRef = ref()
 const form = reactive({
