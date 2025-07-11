@@ -6,14 +6,14 @@ import {ElMessage} from "element-plus";
 import axios from "axios";
 import router from "@/router/index.js";
 import { auth } from '@/stores/index.js'
-import {cooldown, error_report,} from '@/net/index.js'
+import {cooldown, error_report, } from '@/net/index.js'
 
-/*const token = localStorage.getItem('token');
-if (token!==null || token!=='' || token!== undefined ) {
+const token = localStorage.getItem('token');
+if (token!==null && token!=='' && token!== undefined ) {
   ElMessage(token)
   ElMessage('您已登陆，跳转至管理界面')
   router.push('/admin')
-}*/
+}
 
 const formRef = ref()
 const form = reactive({
@@ -22,8 +22,6 @@ const form = reactive({
 });
 
 let last_req_time = ref(0);
-
-
 
 const rules = {
   username: [
@@ -40,13 +38,14 @@ const login1 = () => {
   formRef.value.validate((isValid) => {
     if(isValid) {
       if (last_req_time.value === 0) {
-        //cooldown(last_req_time);//设置请求cd，开发阶段默认不启用，先注释掉
+        cooldown(last_req_time);//设置请求cd，开发阶段默认不启用，先注释掉
         axios.post('/v1/auth/login', {
           username: form.username,
           password: form.password,
         }, {
           headers: {
-            'Content-Type': 'application/json' // 设置请求头
+            'Content-Type': 'application/json', // 设置请求头
+            'Authorization': undefined,
           },
           withCredentials: true // 如果需要发送 cookie
         }).then(({data}) => {
@@ -57,9 +56,10 @@ const login1 = () => {
                 router.push('/admin')
               } else error_report(data)
             }
-        ).catch(error => {
-          ElMessage(error.response.data.message)
-        })
+        )
+      .catch(error => {
+        if (error.response.status === 400) { ElMessage('用户名或密码错误')}
+        else error_report(error) })
       }
       else {
         ElMessage.warning('操作过于频繁，请'+last_req_time.value+'秒后继续操作')

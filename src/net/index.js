@@ -3,32 +3,23 @@ import {ElMessage} from "element-plus";
 import router from "@/router";
 
 const authItemName = "token"
+const req_cd = 3;//操作的最小间隔
 
 const error_report = ({res}) => {
-    console.log(res.message);
-    ElMessage(res.message);
-}
-
-const accessHeader = () => {
-    return {
-        'Authorization': `Bearer ${takeAccessToken()}`
+    if (typeof(res)==="undefined") {
+        console.log("未知错误，请查看控制台报错");
+        ElMessage("未知错误，请查看控制台信息");
     }
-}
-
-const defaultError = (error) => {
-    console.error(error)
-    ElMessage.error('错误：'+error.message)
-}
-
-const defaultFailure = (message, status, url) => {
-    console.warn(`请求地址: ${url}, 状态码: ${status}, 错误信息: ${message}`)
-    ElMessage.warning(message)
+    else {
+        console.log(res.message);
+        ElMessage(res.message);
+    }
 }
 
 function takeAccessToken() {
     const str = localStorage.getItem('token');
-    if(!str) {
-        ElMessage('no token found');
+    if(typeof(str)==="undefined" || str === null) {
+        //ElMessage('no token found');
         return null
     }
     return str
@@ -54,50 +45,13 @@ function deleteAccessToken(redirect = true) {
     }
 }
 
-function internalPost(url, data, headers, success, failure, error = defaultError){
-    axios.post(url, data, { headers: headers }).then(({data}) => {
-        if(data.code === 200) {
-            success(data.data)
-        } else if(data.code === 401) {
-            failure('登录状态已过期，请重新登录！')
-        } else {
-            failure(data.message, data.code, url)
-        }
-    }).catch(err => error(err))
-}
-
-function internalGet(url, headers, success, failure, error = defaultError){
-    axios.get(url, { headers: headers }).then(({data}) => {
-        if(data.code === 200) {
-            success(data.data)
-        } else if(data.code === 401) {
-            failure('登录状态已过期，请重新登录！')
-            deleteAccessToken(true)
-        } else {
-            failure(data.message, data.code, url)
-        }
-    }).catch(err => error(err))
-}
-
-function post(url, data, success, failure = defaultFailure) {
-    internalPost(url, data, accessHeader() , success, failure)
-}
-
 function logout(){
         deleteAccessToken()
         ElMessage.success(`退出登录成功，欢迎您再次使用`)
 }
 
-function get(url, success, failure = defaultFailure) {
-    internalGet(url, accessHeader(), success, failure)
-}
-
-function unauthorized() {
-    return !takeAccessToken()
-}
-
 const cooldown = (time) => {
-    time.value=10;
+    time.value=req_cd;
     const handler = setInterval(() => {
         console.log('start interval');
         time.value--
@@ -107,4 +61,4 @@ const cooldown = (time) => {
     }, 1000)
 }
 
-export { post, get, error_report, logout, unauthorized,takeAccessToken,cooldown }
+export {  error_report, logout, takeAccessToken,cooldown}

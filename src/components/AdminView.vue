@@ -38,14 +38,14 @@ const rules = {
 
 
 const isModalOpen = ref(false);//用于弹出编辑窗口
-let is_update = false;//区分更新模型和创建模型
+let is_update = false;//区分更新模型和创建模型，注意：退出更新模型窗口时，这个变量必然重置为false
 
 const pagination = ref({
   current_page: 1,	//	当前页码，此处默认为第一页
   pages_num: 1,
   total_data: 0,		//	总数据量（不是总页数），此处默认为0条数据
-  row_page: 10,		//	每页展示多少条数据，此处为每页展示20条数据
-  data: [],			//	存储的展示数据条数，由row_page决定至多有多少条数据，例如此处row_page定义了20，那么data最多有20条数据
+  row_page: 5,		//	每页展示多少条数据，此处为每页展示5条数据,这里可以硬编码修改，不依赖于其他操作
+  data: [],			//	存储的展示数据条数，由row_page决定至多有多少条数据
 })
 
 const model_ref = ref()
@@ -59,7 +59,7 @@ const model_info = ref({//编辑模型信息时的表单信息,默认保存最�
   priority: 1,
 });
 
-let models= ref({
+const models= ref({
 })
 
 //函数区
@@ -77,11 +77,11 @@ const get_model= (id) => { //请求单个模型信息，暂时用不到
     withCredentials: true, // 如果需要发送 cookie
   }).then(({data}) => {
     if (data.code===200) {
-      ElMessage('get_model success. modelid is '+data.data.id);
+      //ElMessage('get_model success. modelid is '+data.data.id);
       model_info.value = data.data;
     }
     else error_report(data)
-  }).catch(error => { ElMessage('error:'+error.response.data.message) })
+  }).catch(error => {error_report(error) })
 }
 
 const get_models = () => { //得到当前分页（默认为1）的模型信息，会在进入页面（需要鉴权）后调用一次
@@ -90,24 +90,25 @@ const get_models = () => { //得到当前分页（默认为1）的模型信息�
       'Authorization': `Bearer ${takeAccessToken()}`//令牌
     },
     withCredentials: true, // 如果需要发送 cookie
-    params:{'pageNum': pagination.value.current_page}
+    params:{'pageNum': pagination.value.current_page,
+    'pageSize': pagination.value.row_page,}
   }).then(({data}) => {
     if (data.code===200) {
-      ElMessage('getmodels success. Num is '+data.data.records.length);
+      //ElMessage('getmodels success. Num is '+data.data.records.length);
       models.value=data.data.records;
       pagination.value.current_page = data.data.current;
       pagination.value.total_data = data.data.total;
-      pagination.value.row_page = data.data.size;
       pagination.value.pages_num = data.data.pages;
     }
     else error_report(data)
-  }).catch(error => { ElMessage(error.response.data.message) })
+  }).catch(error => {error_report(error) })
 }
 get_models();
 
 const post_model_impl = () => {
   console.log('Model info:', model_info.value); // 检查 model_info
   if (is_update) {updateModel();return}
+  else if (!model_info.value.apiKey) {ElMessage('注册新模型时，apikey不能为空');return}
   axios.post('/v1/models',model_info.value, {headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${takeAccessToken()}`
@@ -120,8 +121,8 @@ const post_model_impl = () => {
       get_models()
       closeModel()
     }
-    else ElMessage('somthing wrong')
-  }).catch(error => { ElMessage('error:')})
+    else ElMessage('something wrong')
+  }).catch(error => {error_report(error) })
 }
 
 const post_model = () => {//更新和新建模型合用的入口，更新会用调用另一个函数
@@ -139,7 +140,7 @@ const editModel = (i)=>{//用于编辑模型
   isModalOpen.value = true;
 }
 
-const updateModel = ()=> {
+const updateModel = ()=> {//由于apikey是不返回的，前端也可以不填，此时就不会提交给后端apikey参数，后端检测到这点可以不予更改
   model_ref.value.validate((isvalid)=> {
         if (isvalid) {
           updateModel_impl();
@@ -147,6 +148,7 @@ const updateModel = ()=> {
       }
   )
 }
+
 const updateModel_impl = ()=>{
   is_update = false;
   axios.put('/v1/models/'+model_info.value.id,model_info.value, {headers: {
@@ -162,15 +164,13 @@ const updateModel_impl = ()=>{
       closeModel()
     }
     else error_report(data)
-  }).catch(error => { ElMessage('error:'+error.response.data.message) })
+  }).catch(error => {error_report(error) })
 }
 
 const deleteModel = (i)=>{
   model_info.value = models.value[i];
-  axios.delete('/v1/models/'+model_info.value.id,model_info.value, {headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${takeAccessToken()}`
-    },
+  console.log('id:'+model_info.value.id+'\n'+'token:'+takeAccessToken());
+  axios.delete('/v1/models/'+model_info.value.id,model_info.value,{
     withCredentials: true, // 如果需要发送 cookie
   }).then(({data}) => {
     if (data.code===200) {
@@ -180,7 +180,7 @@ const deleteModel = (i)=>{
       clean_model_info(model_info.value);
     }
     else error_report(data)
-  }).catch(error => { ElMessage('error:'+error.response.data.message) })
+  }).catch(error => {error_report(error) })
 }
 
 const openModel = () => { //弹出编辑窗口
@@ -192,23 +192,8 @@ const closeModel = () => { //关闭编辑窗口
   is_update = false;//如果此时进行的是编辑而不是新增，需要重置，等价于直接设置false
 };
 
-const get_page = () => {//不排除会加一些逻辑，先放着……,下面三个函数同理
+const handleCurrentChangeClick = () => {
   get_models();
-}
-
-const handleCurrentChangeClick = (value) => {
-  pagination.value.current_page = value
-  get_page()
-}
-
-const handlePrevClick = (value) => {
-  pagination.value.current_page = value
-  get_page()
-}
-
-const handleNextClick = (value) => {
-  pagination.value.current_page = value
-  get_page()
 }
 
 </script>
@@ -265,7 +250,7 @@ const handleNextClick = (value) => {
             <div class="mb-4">
               <label for="priority" class="block text-sm font-medium text-gray-700 mb-1">优先级</label>
               <el-form-item prop="priority">
-                <el-input-number v-model="model_info.priority" style="width: 100%;" controls-position="right" size="small" />
+                <el-input-number v-model="model_info.priority" :max="99" :min="1" style="width: 100%;" controls-position="right" size="small" />
               </el-form-item>
               <p class="text-xs text-gray-500 mt-1">最小为1,数字越小，优先级越高。</p>
             </div>
@@ -273,7 +258,7 @@ const handleNextClick = (value) => {
             <div class="mb-4">
               <label for="baseurl" class="block text-sm font-medium text-gray-700 mb-1">模型 url</label>
               <el-form-item prop="urlBase">
-              <el-input type="text" size="small" v-model="model_info.urlBase" id="baseurl" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="调用模型的url"></el-input>
+              <el-input type="text" :maxlength="200" size="small" v-model="model_info.urlBase" id="baseurl" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="调用模型的url"></el-input>
               </el-form-item>
             </div>
             <div class="mb-6">
@@ -348,9 +333,6 @@ const handleNextClick = (value) => {
                         hide-on-single-page
                         layout="prev, pager, next"
                         :total="pagination.total_data"
-                        :pager-count="pagination.pages_num"
-                        @prev-click="handlePrevClick"
-                        @next-click="handleNextClick"
                         @current-change="handleCurrentChangeClick"
         />
 

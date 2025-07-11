@@ -1,11 +1,10 @@
 <script setup>
 
 import {reactive, ref} from "vue";
-import {cooldown, error_report, post} from "@/net/index.js";
+import {cooldown, error_report} from "@/net/index.js";
 import router from "@/router/index.js";
 import {ElMessage} from "element-plus";
 import axios from "axios";
-import {auth} from "@/stores/index.js";
 
 const validateUsername = (rule, value, callback) => {
   if (value === '') {
@@ -60,13 +59,14 @@ const register = () => {
   formRef.value.validate((isValid) => {
     if(isValid) {
       if (last_req_time.value === 0) {
-      //cooldown(last_req_time);//设置请求cd，开发阶段默认不启用，先注释掉
+      cooldown(last_req_time);//设置请求cd，开发阶段默认不启用，先注释掉
       axios.post('/v1/auth/register', {
         username: form.username,
         password: form.password,
         email: form.email,
       }, {headers: {
           'Content-Type': 'application/json', // 设置请求头
+          'Authorization': undefined,
         },
         withCredentials: true // 如果需要发送 cookie
       }).then(({data}) => {
@@ -75,7 +75,9 @@ const register = () => {
               router.push('/login')}
             else error_report(data)
           }
-      ).catch(error => { ElMessage(error.response.data.message) })
+      ) .catch( error => {
+        if (error.response.status === 400) { ElMessage('重复的用户名或邮箱')}
+        else error_report(error) })
     }
       else ElMessage.warning('操作过于频繁，请'+last_req_time.value+'秒后继续操作')
     }
