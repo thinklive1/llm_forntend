@@ -1,6 +1,6 @@
-<script setup>
+<script setup lang="ts">
 
-import {ElMessage} from "element-plus";
+import {ElMessage, FormInstance} from "element-plus";
 import axios from "axios";
 import {error_report, logout, takeAccessToken} from "@/net/index.js";
 import {reactive, ref} from "vue";
@@ -48,19 +48,31 @@ const pagination = ref({
   data: [],			//	存储的展示数据条数，由row_page决定至多有多少条数据
 })
 
-const model_ref = ref()
-const model_info = ref({//编辑模型信息时的表单信息,默认保存最后一次编辑时的信息
-  id: '',
+const ruleFormRef = ref<FormInstance>()
+const model_info = ref<LLM_Model>({//编辑模型信息时的表单信息,默认保存最后一次编辑时的信息
+  id: 0,
   displayName: '',
   modelIdentifier: '',
   urlBase: '',
-  apiKey: '',
   capabilities: [],
   priority: 1,
+  status: false,
 });
 
-const models= ref({
-})
+interface LLM_Model {
+  id: number;
+  displayName: string;
+  modelIdentifier: string;
+  urlBase: string;
+  capabilities: Array<"text-to-text">;
+  priority: number;
+  status: boolean | number;
+  createdAt?: string;
+  apiKey?: string;
+  updatedAt?: string;
+}
+
+const models= ref<LLM_Model[]>([])
 
 //函数区
 const clean_model_info = (obj) => {//用于提交模型后清空模型表单
@@ -69,8 +81,8 @@ const clean_model_info = (obj) => {//用于提交模型后清空模型表单
   });
 }
 
-const get_model= (id) => { //请求单个模型信息，暂时用不到
-  axios.get('/v1/models/'+id,model_info.value, {headers: {
+const get_model= (id:number) => { //请求单个模型信息，暂时用不到
+  axios.get('/v1/models/'+id, {headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${takeAccessToken()}`
     },
@@ -96,6 +108,10 @@ const get_models = () => { //得到当前分页（默认为1）的模型信息�
     if (data.code===200) {
       //ElMessage('getmodels success. Num is '+data.data.records.length);
       models.value=data.data.records;
+      models.value.forEach((model: LLM_Model) => {
+        //console.log(model.status);
+        model.status = model.status === 1;//数据库里的类型是int，为了避免麻烦这里手动处理类型转化
+      })
       pagination.value.current_page = data.data.current;
       pagination.value.total_data = data.data.total;
       pagination.value.pages_num = data.data.pages;
@@ -105,9 +121,27 @@ const get_models = () => { //得到当前分页（默认为1）的模型信息�
 }
 get_models();
 
-const post_model_impl = () => {
+const change_status = (i:number)=>{
+  let st = {
+    status: 0,
+  };
+  st.status = Number(models.value[i].status);
+  axios.post('/v1/models/'+models.value[i].id+'/status',st, {headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${takeAccessToken()}`
+    },
+    withCredentials: true, // 如果需要发送 cookie
+  }).then(({data}) => {
+    if (data.code===200) {
+      ElMessage('update_model status success. updated modelname is '+data.data.displayName);
+    }
+    else error_report(data)
+  }).catch(error => {error_report(error) })
+}
+
+const post_model_impl = (formRef: FormInstance) => {//用于处理编辑模型信息提交逻辑，然后调用post_helper
   console.log('Model info:', model_info.value); // 检查 model_info
-  if (is_update) {updateModel();return}
+  if (is_update) {updateModel(formRef);return}
   else if (!model_info.value.apiKey) {ElMessage('注册新模型时，apikey不能为空');return}
   axios.post('/v1/models',model_info.value, {headers: {
       'Content-Type': 'application/json',
@@ -123,12 +157,13 @@ const post_model_impl = () => {
     }
     else ElMessage('something wrong')
   }).catch(error => {error_report(error) })
+
 }
 
-const post_model = () => {//更新和新建模型合用的入口，更新会用调用另一个函数
-  model_ref.value.validate((isvalid)=> {
+const post_model = (formRef: FormInstance) => {//更新和新建模型合用的入口，更新会用调用另一个函数
+  formRef.validate((isvalid)=> {
         if (isvalid) {
-          post_model_impl()
+          post_model_impl(formRef)
         } else ElMessage('请完整填写表单')
       }
   )
@@ -140,8 +175,8 @@ const editModel = (i)=>{//用于编辑模型
   isModalOpen.value = true;
 }
 
-const updateModel = ()=> {//由于apikey是不返回的，前端也可以不填，此时就不会提交给后端apikey参数，后端检测到这点可以不予更改
-  model_ref.value.validate((isvalid)=> {
+const updateModel = (formRef: FormInstance)=> {//由于apikey是不返回的，前端也可以不填，此时就不会提交给后端apikey参数，后端检测到这点可以不予更改
+  formRef.validate((isvalid)=> {
         if (isvalid) {
           updateModel_impl();
         } else ElMessage('请完整填写表单')
@@ -170,7 +205,7 @@ const updateModel_impl = ()=>{
 const deleteModel = (i)=>{
   model_info.value = models.value[i];
   console.log('id:'+model_info.value.id+'\n'+'token:'+takeAccessToken());
-  axios.delete('/v1/models/'+model_info.value.id,model_info.value,{
+  axios.delete('/v1/models/'+model_info.value.id,{
     withCredentials: true, // 如果需要发送 cookie
   }).then(({data}) => {
     if (data.code===200) {
@@ -189,12 +224,14 @@ const openModel = () => { //弹出编辑窗口
 
 const closeModel = () => { //关闭编辑窗口
   isModalOpen.value = false;
+  if (is_update) clean_model_info(model_info.value);
   is_update = false;//如果此时进行的是编辑而不是新增，需要重置，等价于直接设置false
 };
 
 const handleCurrentChangeClick = () => {
   get_models();
 }
+
 
 </script>
 
@@ -223,8 +260,8 @@ const handleCurrentChangeClick = () => {
       <div v-if="isModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
         <div class="modal-overlay absolute inset-0 bg-black opacity-50"></div>
         <div class="modal-content bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 p-6 relative">
-          <h2 id="modal-title" @click="post_model" class="text-xl font-bold mb-4">编辑模型信息</h2>
-          <el-form :model="model_info" :rules="rules" ref="model_ref" id="model-form">
+          <h2 id="modal-title" @click="post_model(ruleFormRef)" class="text-xl font-bold mb-4">编辑模型信息</h2>
+          <el-form :model="model_info" :rules="rules" ref="ruleFormRef" id="model-form">
             <input type="hidden" id="odel-id-input">
             <div class="grid grid-cols-2 gap-4 mb-4">
               <div>
@@ -273,8 +310,8 @@ const handleCurrentChangeClick = () => {
               </el-checkbox-group>
             </div>
             <div class="flex justify-end space-x-3">
-              <button type="button" @click="closeModel" id="cancel-btn" class="bg-gray-200 text-gray-800 font-semibold px-4 py-2 rounded-lg hover:bg-gray-300">取消</button>
-              <button type="button" @click="post_model" class="bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700">提交模型</button>
+              <el-button @click="closeModel" id="cancel-btn" style="margin-top: 10px" class="bg-gray-200 text-gray-800 font-semibold px-4 py-2 rounded-lg hover:bg-gray-300">取消</el-button>
+              <el-button type="primary" @click="post_model(ruleFormRef)" style="margin-top: 10px" class="bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700">提交模型</el-button>
             </div>
           </el-form>
         </div>
@@ -316,7 +353,8 @@ const handleCurrentChangeClick = () => {
                 {{ capability }}
               </span>
             </td>
-            <td class="px-6 py-4">{{ model.status }}</td>
+            <td class="px-6 py-4"> <el-switch  v-model="model.status" active-text="可用"
+                                              inactive-text="不可用" inline-prompt @change="change_status(index)" /></td>
             <td class="px-6 py-4 text-right">
               <button @click="editModel(index)" class="font-medium text-blue-600 hover:underline p-1 ml-2">编辑</button>
               <button @click="deleteModel(index)" class="font-medium text-red-600 hover:underline p-1 ml-2">删除</button>

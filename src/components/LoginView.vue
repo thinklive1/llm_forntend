@@ -1,8 +1,8 @@
-<script setup >
+<script setup lang="ts">
 
 
 import {reactive, ref} from "vue";
-import {ElMessage} from "element-plus";
+import {ElMessage, FormInstance, FormRules} from "element-plus";
 import axios from "axios";
 import router from "@/router/index.js";
 import { auth } from '@/stores/index.js'
@@ -15,27 +15,30 @@ if (token!==null && token!=='' && token!== undefined ) {
   router.push('/admin')
 }
 
-const formRef = ref()
-const form = reactive({
+interface RuleForm {
+  username: string
+  password: string
+}
+const ruleFormRef = ref<FormInstance>()
+const form = reactive<RuleForm>({
   username: '',
   password: '',
 });
 
 let last_req_time = ref(0);
 
-const rules = {
+const rules = reactive<FormRules<RuleForm>>({
   username: [
-    { min: 2, max: 8, message: '用户名的长度必须在2-8个字符之间', trigger: ['blur', 'change'] },
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { min: 2, max: 20, message: '长度需要在2-20字符间', trigger: 'blur' },
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, max: 16, message: '密码的长度必须在6-16个字符之间', trigger: ['blur', 'change'] }
-  ],
+    { min: 6, message: '密码长度不能小于6位', trigger: 'blur' },]
+})
 
-}
-
-const login1 = () => {
-  formRef.value.validate((isValid) => {
+const login1 = (formRef: FormInstance) => {
+  formRef.validate((isValid) => {
     if(isValid) {
       if (last_req_time.value === 0) {
         cooldown(last_req_time);//设置请求cd，开发阶段默认不启用，先注释掉
@@ -50,7 +53,7 @@ const login1 = () => {
           withCredentials: true // 如果需要发送 cookie
         }).then(({data}) => {
               if (data.code === 200) {
-                ElMessage('login success token:' + data.data.token)
+                //ElMessage('login success token:' + data.data.token)
                 auth.username = data.data.username
                 localStorage.setItem('token', data.data.token);
                 router.push('/admin')
@@ -87,7 +90,7 @@ const login1 = () => {
       <p class="mt-1 text-center text-sm text-gray-500">欢迎回来，请输入您的凭证</p>
     </div>
     <div style="margin-top: 50px">
-      <el-form :model="form" :rules="rules" ref="formRef">
+      <el-form :model="form" :rules="rules" ref="ruleFormRef">
         <el-form-item prop="username">
           <label for="email" class="block text-sm font-medium text-gray-700">用户名</label>
           <el-input v-model="form.username" :maxlength="8" type="text" placeholder="用户名">
@@ -100,7 +103,7 @@ const login1 = () => {
         </el-form-item>
 
         <div style="margin-top: 20px;display: flex; flex-direction: column; align-items: center;">
-          <el-button type="primary" style="width: 270px" @click="login1" plain>登陆</el-button>
+          <el-button type="primary" style="width: 270px" @click="login1(ruleFormRef)" plain>登陆</el-button>
         </div>
         <div style="margin-top: 20px;display: flex; justify-content: center; flex-direction: row; align-items: center;">
           <span style="font-size: 14px;line-height: 15px;color: grey">没有账号? </span>

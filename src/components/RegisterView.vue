@@ -1,9 +1,9 @@
-<script setup>
+<script setup lang="ts">
 
 import {reactive, ref} from "vue";
 import {cooldown, error_report} from "@/net/index.js";
 import router from "@/router/index.js";
-import {ElMessage} from "element-plus";
+import {ElMessage, FormInstance, FormRules} from "element-plus";
 import axios from "axios";
 
 const validateUsername = (rule, value, callback) => {
@@ -26,14 +26,22 @@ const validatePassword = (rule, value, callback) => {
   }
 }
 
-const form = reactive({
+interface RuleForm {
+  username: string
+  password: string
+  password_repeat: string
+  email: string
+}
+
+const ruleFormRef = ref<FormInstance>()
+const form = reactive<RuleForm>({
   username: '',
   password: '',
   password_repeat: '',
   email: '',
 })
 
-const rules = {
+const rules = reactive<FormRules<RuleForm>>({
   username: [
     { validator: validateUsername, trigger: ['blur', 'change'] },
     { min: 2, max: 8, message: '用户名的长度必须在2-8个字符之间', trigger: ['blur', 'change'] },
@@ -49,14 +57,13 @@ const rules = {
     { required: true, message: '请输入邮件地址', trigger: 'blur' },
     {type: 'email', message: '请输入合法的电子邮件地址', trigger: ['blur', 'change']}
   ],
-}
+})
 
 
 let last_req_time = ref(0);
-const formRef = ref()
 
-const register = () => {
-  formRef.value.validate((isValid) => {
+const register = (formRef: FormInstance) => {
+  formRef.validate((isValid) => {
     if(isValid) {
       if (last_req_time.value === 0) {
       cooldown(last_req_time);//设置请求cd，开发阶段默认不启用，先注释掉
@@ -103,7 +110,7 @@ const register = () => {
       <p class="mt-1 text-center text-sm text-gray-500">请根据邮箱地址进行注册</p>
     </div>
     <div style="margin-top: 50px">
-      <el-form :model="form" :rules="rules" ref="formRef">
+      <el-form :model="form" :rules="rules" ref="ruleFormRef">
         <el-form-item prop="username">
           <label for="email" class="block text-sm font-medium text-gray-700">用户名</label>
           <el-input v-model="form.username" :maxlength="50" type="text" placeholder="用户名">
@@ -126,7 +133,7 @@ const register = () => {
       </el-form>
     </div>
     <div style="margin-top: 80px;display: flex; flex-direction: column; align-items: center;">
-      <el-button style="width: 270px" type="primary" @click="register" plain>注册</el-button>
+      <el-button style="width: 270px" type="primary" @click="register(ruleFormRef)" plain>注册</el-button>
     </div>
     <div style="margin-top: 20px;display: flex; justify-content: center; flex-direction: row; align-items: center;">
       <span style="font-size: 14px;line-height: 15px;color: grey">已有账号? </span>
