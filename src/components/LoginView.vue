@@ -10,7 +10,6 @@ import {cooldown, error_report, } from '@/net/index.js'
 
 const token = localStorage.getItem('token');
 if (token!==null && token!=='' && token!== undefined ) {
-  ElMessage(token)
   ElMessage('您已登陆，跳转至管理界面')
   router.push('/admin')
 }
@@ -53,7 +52,7 @@ const login1 = (formRef: FormInstance) => {
           withCredentials: true // 如果需要发送 cookie
         }).then(({data}) => {
               if (data.code === 200) {
-                //ElMessage('login success token:' + data.data.token)
+                ElMessage.success('登陆成功，跳转至管理界面')
                 auth.username = data.data.username
                 localStorage.setItem('token', data.data.token);
                 router.push('/admin')

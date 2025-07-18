@@ -133,7 +133,7 @@ const change_status = (i:number)=>{
     withCredentials: true, // 如果需要发送 cookie
   }).then(({data}) => {
     if (data.code===200) {
-      ElMessage('update_model status success. updated modelname is '+data.data.displayName);
+      //ElMessage('update_model status success. updated modelname is '+data.data.displayName);
     }
     else error_report(data)
   }).catch(error => {error_report(error) })
