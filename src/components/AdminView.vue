@@ -23,7 +23,7 @@ const rules = {
     { min: 2, max: 50, message: '长度必须在2-50个字符之间', trigger: ['blur', 'change'] }
   ],
   urlBase: [
-    { required: true, message: '请输入模型url', trigger: 'blur' },
+    {  message: '请输入模型url', trigger: 'blur' },
     {type: 'url', message: '请输入合法url', trigger: ['blur', 'change']}
   ],
   apiKey: [
@@ -44,7 +44,7 @@ const pagination = ref({
   current_page: 1,	//	当前页码，此处默认为第一页
   pages_num: 1,
   total_data: 0,		//	总数据量（不是总页数），此处默认为0条数据
-  row_page: 5,		//	每页展示多少条数据，此处为每页展示5条数据,这里可以硬编码修改，不依赖于其他操作
+  row_page: 10,		//	每页展示多少条数据，此处为每页展示10条数据,这里可以硬编码修改，不依赖于其他操作
   data: [],			//	存储的展示数据条数，由row_page决定至多有多少条数据
 })
 
@@ -353,8 +353,8 @@ const handleCurrentChangeClick = () => {
                 {{ capability }}
               </span>
             </td>
-            <td class="px-6 py-4"> <el-switch  v-model="model.status" active-text="可用"
-                                              inactive-text="不可用" inline-prompt @change="change_status(index)" /></td>
+            <td class="px-6 py-4"> <el-switch  v-model="model.status" active-text="上线"
+                                              inactive-text="下线" inline-prompt @change="change_status(index)" /></td>
             <td class="px-6 py-4 text-right">
               <button @click="editModel(index)" class="font-medium text-blue-600 hover:underline p-1 ml-2">编辑</button>
               <button @click="deleteModel(index)" class="font-medium text-red-600 hover:underline p-1 ml-2">删除</button>
