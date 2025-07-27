@@ -53,8 +53,9 @@ const login1 = (formRef: FormInstance) => {
         }).then(({data}) => {
               if (data.code === 200) {
                 ElMessage.success('登陆成功，跳转至管理界面')
-                auth.username = data.data.username
+                //auth.username = data.data.username 刷新管理页面会失效
                 localStorage.setItem('token', data.data.token);
+                sessionStorage.setItem('username', form.username);
                 router.push('/admin')
               } else error_report(data)
             }

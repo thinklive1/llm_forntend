@@ -4,6 +4,8 @@ import {ElMessage, FormInstance} from "element-plus";
 import axios from "axios";
 import {error_report, logout, takeAccessToken} from "@/net/index.js";
 import {reactive, ref} from "vue";
+import {auth} from "@/stores/index.js"
+import KeyAdmin from "@/components/Admin_derivatives/KeyAdmin.vue";
 
 //数据区
 const CAPABILITY_MAP = {
@@ -38,7 +40,10 @@ const rules = {
 
 
 const isModalOpen = ref(false);//用于弹出编辑窗口
+const isKeyAdminOpen = ref(false);//用于弹出key管理窗口
+const isUsageViewOpen = ref(false);//用于弹出使用量查看窗口
 let is_update = false;//区分更新模型和创建模型，注意：退出更新模型窗口时，这个变量必然重置为false
+const user_name = ref(sessionStorage.getItem('username'))
 
 const pagination = ref({
   current_page: 1,	//	当前页码，此处默认为第一页
@@ -103,7 +108,7 @@ const get_models = () => { //得到当前分页（默认为1）的模型信息�
     },
     withCredentials: true, // 如果需要发送 cookie
     params:{'pageNum': pagination.value.current_page,
-    'pageSize': pagination.value.row_page,}
+      'pageSize': pagination.value.row_page,}
   }).then(({data}) => {
     if (data.code===200) {
       //ElMessage('getmodels success. Num is '+data.data.records.length);
@@ -202,7 +207,7 @@ const updateModel_impl = ()=>{
   }).catch(error => {error_report(error) })
 }
 
-const deleteModel = (i)=>{
+const deleteModel = (i:number)=>{
   model_info.value = models.value[i];
   console.log('id:'+model_info.value.id+'\n'+'token:'+takeAccessToken());
   axios.delete('/v1/models/'+model_info.value.id,{
@@ -216,6 +221,10 @@ const deleteModel = (i)=>{
     }
     else error_report(data)
   }).catch(error => {error_report(error) })
+}
+
+const testModel = (i:number)=>{
+
 }
 
 const openModel = () => { //弹出编辑窗口
@@ -232,6 +241,17 @@ const handleCurrentChangeClick = () => {
   get_models();
 }
 
+const openKeyAdmin = () => {
+  isKeyAdminOpen.value = true;
+};
+
+const closeKeyAdmin = () => {
+  isKeyAdminOpen.value = false;
+};
+
+const openUsage = () => {
+  isUsageViewOpen.value = true;
+};
 
 </script>
 
@@ -241,11 +261,12 @@ const handleCurrentChangeClick = () => {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>大模型代理服务管理后台</title>
-
   </head>
 
-
   <body class="bg-gray-50">
+
+  <!-- accesskey管理窗口的组件 -->
+  <KeyAdmin :isKeyAdminOpen :username="user_name" @closeKey="closeKeyAdmin"></KeyAdmin>
 
   <div class="p-6 min-h-screen">
     <header class="flex items-center justify-between pb-4 border-b">
@@ -253,10 +274,18 @@ const handleCurrentChangeClick = () => {
         <h1 class="text-2xl font-bold text-gray-800">大模型代理服务管理后台</h1>
         <p class="text-gray-600">集中管理、配置和监控所有接入的大模型。</p>
       </div>
-      <button id="add-new-model-btn" @click="openModel" class="bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-        <span class="ml-2">注册新模型</span>
-      </button>
+      <el-container style="display: flex; justify-content: flex-end;  margin: 10px;">
+        <button id="keyAdmin-btn" @click="openKeyAdmin" class="bg-blue-300 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center" style="margin-right: 10px;">
+          <span class="ml-2">管理AccessKeys</span>
+        </button>
+        <button id="usage-btn" @click="openModel" class="bg-blue-400 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center" style="margin-right: 10px;">
+          <span class="ml-2">使用量查看</span>
+        </button>
+        <button id="add-new-model-btn" @click="openModel" class="bg-blue-500 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center" style="margin-right: 10px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+          <span class="ml-2">注册新模型</span>
+        </button>
+      </el-container>
       <div v-if="isModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
         <div class="modal-overlay absolute inset-0 bg-black opacity-50"></div>
         <div class="modal-content bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 p-6 relative">
@@ -267,8 +296,8 @@ const handleCurrentChangeClick = () => {
               <div>
                 <label for="name" class="block text-sm font-medium text-gray-700 mb-1">模型名称</label>
                 <el-form-item prop="displayName">
-                <el-input type="text" size="small" :maxlength="50" :minlength="2" v-model="model_info.displayName" id="name" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="例如：OpenAI GPT-4o" required> </el-input>
-                  </el-form-item>
+                  <el-input type="text" size="small" :maxlength="50" :minlength="2" v-model="model_info.displayName" id="name" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="例如：OpenAI GPT-4o" required> </el-input>
+                </el-form-item>
               </div>
               <div>
                 <label for="modelId" class="block text-sm font-medium text-gray-700 mb-1">模型标识 (Model ID)</label>
@@ -278,24 +307,24 @@ const handleCurrentChangeClick = () => {
               </div>
             </div>
             <div class="grid grid-cols-2 gap-4 mb-4">
-            <div class="mb-4">
-              <label for="apiKey" class="block text-sm font-medium text-gray-700 mb-1">API 密钥</label>
-              <el-form-item prop="apiKey">
-              <el-input type="password" size="small" v-model="model_info.apiKey" id="apiKey" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="新增时必填，编辑时留空则不更新"></el-input>
-              </el-form-item>
-            </div>
-            <div class="mb-4">
-              <label for="priority" class="block text-sm font-medium text-gray-700 mb-1">优先级</label>
-              <el-form-item prop="priority">
-                <el-input-number v-model="model_info.priority" :max="99" :min="1" style="width: 100%;" controls-position="right" size="small" />
-              </el-form-item>
-              <p class="text-xs text-gray-500 mt-1">最小为1,数字越小，优先级越高。</p>
-            </div>
+              <div class="mb-4">
+                <label for="apiKey" class="block text-sm font-medium text-gray-700 mb-1">API 密钥</label>
+                <el-form-item prop="apiKey">
+                  <el-input type="password" size="small" v-model="model_info.apiKey" id="apiKey" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="新增时必填，编辑时留空则不更新"></el-input>
+                </el-form-item>
+              </div>
+              <div class="mb-4">
+                <label for="priority" class="block text-sm font-medium text-gray-700 mb-1">优先级</label>
+                <el-form-item prop="priority">
+                  <el-input-number v-model="model_info.priority" :max="99" :min="1" style="width: 100%;" controls-position="right" size="small" />
+                </el-form-item>
+                <p class="text-xs text-gray-500 mt-1">最小为1,数字越小，优先级越高。</p>
+              </div>
             </div>
             <div class="mb-4">
               <label for="baseurl" class="block text-sm font-medium text-gray-700 mb-1">模型 url</label>
               <el-form-item prop="urlBase">
-              <el-input type="text" :maxlength="200" size="small" v-model="model_info.urlBase" id="baseurl" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="调用模型的url"></el-input>
+                <el-input type="text" :maxlength="200" size="small" v-model="model_info.urlBase" id="baseurl" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="调用模型的url"></el-input>
               </el-form-item>
             </div>
             <div class="mb-6">
@@ -354,9 +383,10 @@ const handleCurrentChangeClick = () => {
               </span>
             </td>
             <td class="px-6 py-4"> <el-switch  v-model="model.status" active-text="上线"
-                                              inactive-text="下线" inline-prompt @change="change_status(index)" /></td>
-            <td class="px-6 py-4 text-right">
+                                               inactive-text="下线" inline-prompt @change="change_status(index)" /></td>
+            <td class="px-4 py-4 text-right">
               <button @click="editModel(index)" class="font-medium text-blue-600 hover:underline p-1 ml-2">编辑</button>
+              <button @click="testModel(index)" class="font-medium text-green-600 hover:underline p-1 ml-2">测试</button>
               <button @click="deleteModel(index)" class="font-medium text-red-600 hover:underline p-1 ml-2">删除</button>
             </td>
           </tr>
@@ -374,9 +404,14 @@ const handleCurrentChangeClick = () => {
                         @current-change="handleCurrentChangeClick"
         />
 
-        <button style="position: absolute; bottom: 10px; right: 10px;" id="add-new-model-btn" @click="logout()" class="bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center">
-          <span class="ml-2">注销</span>
-        </button>
+
+        <el-text  style="position: absolute;top: 10px;right: 10px" >您的用户名为: {{user_name}}</el-text>
+
+        <el-container style="position: absolute; bottom: 10px; right: 10px;" direction="horizontal">
+          <el-button type="primary" plain  @click="logout()" class="bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center">
+            注销
+          </el-button>
+        </el-container>
       </div>
     </main>
   </div>
