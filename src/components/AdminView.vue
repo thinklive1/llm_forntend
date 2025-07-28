@@ -3,9 +3,9 @@
 import {ElMessage, FormInstance} from "element-plus";
 import axios from "axios";
 import {error_report, logout, takeAccessToken} from "@/net/index.js";
-import {reactive, ref} from "vue";
-import {auth} from "@/stores/index.js"
+import {reactive, ref } from "vue";
 import KeyAdmin from "@/components/Admin_derivatives/KeyAdmin.vue";
+import ModelTest from "@/components/Admin_derivatives/ModelTest.vue";
 
 //数据区
 const CAPABILITY_MAP = {
@@ -76,6 +76,7 @@ interface LLM_Model {
   apiKey?: string;
   updatedAt?: string;
 }
+
 
 const models= ref<LLM_Model[]>([])
 
@@ -223,8 +224,17 @@ const deleteModel = (i:number)=>{
   }).catch(error => {error_report(error) })
 }
 
-const testModel = (i:number)=>{
+const getValidKey = () => {
+}
 
+const testModel = (i:number)=>{//该函数的作用是获取一个可用的key，否则不进行后续操作，如果有key可用，进入到子组件ModelTest的入口函数
+  let str: string = keyAdminRef.value.get_accKey(keyAdminRef.value.total_keys);
+  let ModToTest: LLM_Model = models.value[i];
+  if (str === '') {ElMessage('当前账号没有可用的AccessKey，请先获取key');return}
+  else {
+    console.log('使用的key: '+str) ;
+    TestRef.value.testEntry(str,ModToTest);
+  }
 }
 
 const openModel = () => { //弹出编辑窗口
@@ -253,6 +263,8 @@ const openUsage = () => {
   isUsageViewOpen.value = true;
 };
 
+const keyAdminRef = ref<any>();
+const TestRef = ref<any>();
 </script>
 
 <template>
@@ -266,7 +278,8 @@ const openUsage = () => {
   <body class="bg-gray-50">
 
   <!-- accesskey管理窗口的组件 -->
-  <KeyAdmin :isKeyAdminOpen :username="user_name" @closeKey="closeKeyAdmin"></KeyAdmin>
+  <KeyAdmin :isKeyAdminOpen :username="user_name" @closeKey="closeKeyAdmin" ref="keyAdminRef"/>
+  <ModelTest ref="TestRef" ></ModelTest>
 
   <div class="p-6 min-h-screen">
     <header class="flex items-center justify-between pb-4 border-b">
@@ -439,15 +452,5 @@ const openUsage = () => {
 .hidden .modal-content {
   transform: scale(0.95);
 }
-.icon-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: 9999px;
-}
-.icon-button:hover {
-  background-color: #f3f4f6;
-}
+
 </style>

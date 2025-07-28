@@ -41,7 +41,6 @@ const getAccessKeys = () => {
     else error_report(data)
   }).catch(error => {error_report(error) })
 }
-getAccessKeys();
 
 const delAccessKey = (i: number) => {
   axios.delete('/v1/auth/access-keys/'+keys.value[i].id, {headers: {
@@ -78,11 +77,20 @@ const handlePage  = (page: number) => {
   keys.value = total_keys.value.slice((page-1)*pagination.value.row_page,page*pagination.value.row_page);
 }
 
-
-
 const handleCurrentChangeClick = () => {
-handlePage(pagination.value.current_page);
+  handlePage(pagination.value.current_page);
 }
+getAccessKeys();
+
+const get_accKey = (keys:AccessKey[]): string => {
+  let str ='';
+  keys.forEach((key) => {
+    if (key.isActive === true) { str =key.keyValue; return str;}
+  }  )
+  return str;
+}
+
+defineExpose({total_keys,getAccessKeys,get_accKey})
 
 </script>
 
