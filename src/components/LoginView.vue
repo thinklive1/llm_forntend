@@ -5,7 +5,7 @@ import {reactive, ref} from "vue";
 import {ElMessage, FormInstance, FormRules} from "element-plus";
 import axios from "axios";
 import router from "@/router/index.js";
-import { auth } from '@/stores/index.js'
+import { states } from '@/stores/index.js'
 import {cooldown, error_report, } from '@/net/index.js'
 
 const token = localStorage.getItem('token');
@@ -53,7 +53,6 @@ const login1 = (formRef: FormInstance) => {
         }).then(({data}) => {
               if (data.code === 200) {
                 ElMessage.success('登陆成功，跳转至管理界面')
-                //auth.username = data.data.username 刷新管理页面会失效
                 localStorage.setItem('token', data.data.token);
                 sessionStorage.setItem('username', form.username);
                 router.push('/admin')

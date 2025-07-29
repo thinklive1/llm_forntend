@@ -1,4 +1,6 @@
 import {reactive} from 'vue'
-export const auth = reactive({
-  username: null,
+export const states = reactive({
+  KeyInUse: '',
+  ModelToTest: null,
+  CapInTest: '',
 })

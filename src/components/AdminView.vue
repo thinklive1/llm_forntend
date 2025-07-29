@@ -3,9 +3,10 @@
 import {ElMessage, FormInstance} from "element-plus";
 import axios from "axios";
 import {error_report, logout, takeAccessToken} from "@/net/index.js";
-import {reactive, ref } from "vue";
+import { ref } from "vue";
 import KeyAdmin from "@/components/Admin_derivatives/KeyAdmin.vue";
 import ModelTest from "@/components/Admin_derivatives/ModelTest.vue";
+import {states} from "@/stores"
 
 //数据区
 const CAPABILITY_MAP = {
@@ -41,6 +42,7 @@ const rules = {
 
 const isModalOpen = ref(false);//用于弹出编辑窗口
 const isKeyAdminOpen = ref(false);//用于弹出key管理窗口
+const dialogVisible = ref(false);
 const isUsageViewOpen = ref(false);//用于弹出使用量查看窗口
 let is_update = false;//区分更新模型和创建模型，注意：退出更新模型窗口时，这个变量必然重置为false
 const user_name = ref(sessionStorage.getItem('username'))
@@ -79,6 +81,8 @@ interface LLM_Model {
 
 
 const models= ref<LLM_Model[]>([])
+const capabilitiyRef= ref<string>('')
+const capabilitiesRef= ref<string[]>()
 
 //函数区
 const clean_model_info = (obj) => {//用于提交模型后清空模型表单
@@ -224,8 +228,6 @@ const deleteModel = (i:number)=>{
   }).catch(error => {error_report(error) })
 }
 
-const getValidKey = () => {
-}
 
 const testModel = (i:number)=>{//该函数的作用是获取一个可用的key，否则不进行后续操作，如果有key可用，进入到子组件ModelTest的入口函数
   let str: string = keyAdminRef.value.get_accKey(keyAdminRef.value.total_keys);
@@ -233,7 +235,11 @@ const testModel = (i:number)=>{//该函数的作用是获取一个可用的key�
   if (str === '') {ElMessage('当前账号没有可用的AccessKey，请先获取key');return}
   else {
     console.log('使用的key: '+str) ;
-    TestRef.value.testEntry(str,ModToTest);
+    states.KeyInUse = str;
+    states.ModelToTest = ModToTest;
+    if (ModToTest.capabilities===undefined || ModToTest.capabilities.length===0) {ElMessage('模型支持功能为空'); return;}
+    else if (ModToTest.capabilities.length==1) TestRef.value.testEntry(str,ModToTest,ModToTest.capabilities[0]);
+    else {capabilitiesRef.value = ModToTest.capabilities; dialogVisible.value=true;}
   }
 }
 
@@ -263,6 +269,12 @@ const openUsage = () => {
   isUsageViewOpen.value = true;
 };
 
+const select_test = () => {
+  if (capabilitiyRef.value==='') {ElMessage('必须选择一种测试');return;}
+  dialogVisible.value = false;
+  TestRef.value.testEntry(states.KeyInUse,states.ModelToTest,capabilitiyRef.value);
+}
+
 const keyAdminRef = ref<any>();
 const TestRef = ref<any>();
 </script>
@@ -280,6 +292,17 @@ const TestRef = ref<any>();
   <!-- accesskey管理窗口的组件 -->
   <KeyAdmin :isKeyAdminOpen :username="user_name" @closeKey="closeKeyAdmin" ref="keyAdminRef"/>
   <ModelTest ref="TestRef" ></ModelTest>
+  <el-dialog v-model="dialogVisible" title="选择需要进行的测试" width="500" >
+    <el-radio-group v-model="capabilitiyRef" >
+      <el-radio v-for="capability in capabilitiesRef" :key="capability" :value="capability" size="large">{{capability}}</el-radio>
+    </el-radio-group>
+    <template #footer>
+      <div class="dialog-footer">
+        <el-button @click="dialogVisible = false">取消测试</el-button>
+        <el-button type="primary" @click="select_test"> 确认测试 </el-button>
+      </div>
+    </template>
+  </el-dialog>
 
   <div class="p-6 min-h-screen">
     <header class="flex items-center justify-between pb-4 border-b">
