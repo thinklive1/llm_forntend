@@ -1,8 +1,7 @@
 {
   "compilerOptions": {
     "paths": {
-      "@/*": ["./src/*"],
-      "lib": ["es2015", "dom"]
+      "@/*": ["./src/*"]
     }
   },
   "exclude": ["node_modules", "dist"]

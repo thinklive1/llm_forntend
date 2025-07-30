@@ -7,6 +7,7 @@ import { ref } from "vue";
 import KeyAdmin from "@/components/Admin_derivatives/KeyAdmin.vue";
 import ModelTest from "@/components/Admin_derivatives/ModelTest.vue";
 import {states} from "@/stores"
+import UsageSelect from "@/components/Admin_derivatives/UsageSelect.vue";
 
 //数据区
 const CAPABILITY_MAP = {
@@ -236,9 +237,10 @@ const testModel = (i:number)=>{//该函数的作用是获取一个可用的key�
   else {
     console.log('使用的key: '+str) ;
     states.KeyInUse = str;
+    states.CapInTest= ModToTest.capabilities[0];
     states.ModelToTest = ModToTest;
     if (ModToTest.capabilities===undefined || ModToTest.capabilities.length===0) {ElMessage('模型支持功能为空'); return;}
-    else if (ModToTest.capabilities.length==1) TestRef.value.testEntry(str,ModToTest,ModToTest.capabilities[0]);
+    else if (ModToTest.capabilities.length==1) TestRef.value.testEntry();
     else {capabilitiesRef.value = ModToTest.capabilities; dialogVisible.value=true;}
   }
 }
@@ -258,6 +260,7 @@ const handleCurrentChangeClick = () => {
 }
 
 const openKeyAdmin = () => {
+  keyAdminRef.value.getAccessKeys();
   isKeyAdminOpen.value = true;
 };
 
@@ -266,16 +269,23 @@ const closeKeyAdmin = () => {
 };
 
 const openUsage = () => {
+  UsageRef.value.get_usage_datas();
   isUsageViewOpen.value = true;
+};
+
+const closeUsage = () => {
+  isUsageViewOpen.value = false;
 };
 
 const select_test = () => {
   if (capabilitiyRef.value==='') {ElMessage('必须选择一种测试');return;}
   dialogVisible.value = false;
-  TestRef.value.testEntry(states.KeyInUse,states.ModelToTest,capabilitiyRef.value);
+  states.CapInTest = capabilitiyRef.value;
+  TestRef.value.testEntry();
 }
 
 const keyAdminRef = ref<any>();
+const UsageRef = ref<any>();
 const TestRef = ref<any>();
 </script>
 
@@ -291,6 +301,7 @@ const TestRef = ref<any>();
 
   <!-- accesskey管理窗口的组件 -->
   <KeyAdmin :isKeyAdminOpen :username="user_name" @closeKey="closeKeyAdmin" ref="keyAdminRef"/>
+  <UsageSelect :is-usage-visible="isUsageViewOpen" @closeUsage="closeUsage" ref="UsageRef"></UsageSelect>
   <ModelTest ref="TestRef" ></ModelTest>
   <el-dialog v-model="dialogVisible" title="选择需要进行的测试" width="500" >
     <el-radio-group v-model="capabilitiyRef" >
@@ -314,7 +325,7 @@ const TestRef = ref<any>();
         <button id="keyAdmin-btn" @click="openKeyAdmin" class="bg-blue-300 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center" style="margin-right: 10px;">
           <span class="ml-2">管理AccessKeys</span>
         </button>
-        <button id="usage-btn" @click="openModel" class="bg-blue-400 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center" style="margin-right: 10px;">
+        <button id="usage-btn" @click="openUsage" class="bg-blue-400 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center" style="margin-right: 10px;">
           <span class="ml-2">使用量查看</span>
         </button>
         <button id="add-new-model-btn" @click="openModel" class="bg-blue-500 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center" style="margin-right: 10px;">
@@ -401,11 +412,11 @@ const TestRef = ref<any>();
         <table class="w-full text-sm text-left text-gray-500">
           <thead class="text-xs text-gray-700 uppercase bg-gray-50">
           <tr>
-            <th scope="col" class="px-6 py-3 w-32">优先级</th>
-            <th scope="col" class="px-6 py-3">模型名称 / 标识</th>
-            <th scope="col" class="px-6 py-3">支持功能</th>
-            <th scope="col" class="px-6 py-3 w-28">状态</th>
-            <th scope="col" class="px-6 py-3 w-36 text-right">操作</th>
+            <th scope="col" class="px-6 py-3 w-32 text-left">优先级</th>
+            <th scope="col" class="px-6 py-3 text-center">模型名称 / 标识</th>
+            <th scope="col" class="px-6 py-3 text-center">支持功能</th>
+            <th scope="col" class="px-6 py-3 w-28 text-center">状态</th>
+            <th scope="col" class="px-6 py-3 w-36 text-center">操作</th>
           </tr>
           </thead>
           <tbody id="model-table-body">

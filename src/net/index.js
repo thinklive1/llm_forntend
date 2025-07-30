@@ -25,18 +25,6 @@ function takeAccessToken() {
     return str
 }
 
-function storeAccessToken(remember, token, expire){
-    const authObj = {
-        token: token,
-        expire: expire
-    }
-    const str = JSON.stringify(authObj)
-    if(remember)
-        localStorage.setItem(authItemName, str)
-    else
-        sessionStorage.setItem(authItemName, str)
-}
-
 function deleteAccessToken(redirect = true) {
     localStorage.removeItem(authItemName)
     sessionStorage.removeItem(authItemName)

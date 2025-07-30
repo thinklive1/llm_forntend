@@ -80,7 +80,7 @@ const handlePage  = (page: number) => {
 const handleCurrentChangeClick = () => {
   handlePage(pagination.value.current_page);
 }
-getAccessKeys();
+
 
 const get_accKey = (keys:AccessKey[]): string => {
   let str ='';

@@ -93,29 +93,28 @@ const popoverRef = ref()
 const rules = {
   url: [
     { required: true, message: '请输入图片url', trigger: ['blur', 'change'] },
-    { pattern: '(http|https)://[\\w\\d./?&=#+-]+\\.(jpg|jpeg|gif|png)', message: '必须是图片格式', trigger: ['blur', 'change'] },
+    { pattern: '(http|https)://[\\w\\d./?&=#+-]+\\.(jpg|jpeg|png)', message: '必须是图片格式', trigger: ['blur', 'change'] },
   ],
 }
 
-const testEntry= (key: string,ModelToTest,cap: string) => {//整个组件的入口，将管理组件传来的key和模型信息存储下来，然后进行之后的测试
-  keyInUse.value=key;
-  states.CapInTest = cap;
-  M2Test.value=ModelToTest;
-  switch (cap) {
+const testEntry= () => {//整个组件的入口，将管理组件传来的key和模型信息存储下来，然后进行之后的测试
+  keyInUse.value=states.KeyInUse;
+  M2Test.value=states.ModelToTest;
+  switch (states.CapInTest) {
     case 'text-to-text':
       console.log('开始进行t2t模型测试')
-      testT2T(ModelToTest);
+      testT2T();
       break;
     case 'text-to-image':
       console.log('开始进行t2i模型测试')
-      testT2M(ModelToTest);
+      testT2M();
       break;
     case 'image-to-text':
       console.log('开始进行i2t模型测试')
-      testM2T(ModelToTest);
+      testM2T();
       break;
     default:
-      ElMessage.warning('遇到了没有注册的类型:'+cap)
+      ElMessage.warning('遇到了没有注册的类型:'+states.CapInTest)
       break;
   }
 }
@@ -156,15 +155,15 @@ const send_chatWithImg = (formRef: FormInstance) => {
 
 }
 
-const testT2T = (m) => {
+const testT2T = () => {
   isChatOpen.value = true;
 }
 
-const testM2T = (m) => {
+const testM2T = () => {
   isChatOpen.value = true;
 }
 
-const testT2M = (m) => {
+const testT2M = () => {
   isChatOpen.value = true;
 }
 
@@ -188,8 +187,8 @@ const save_change = () => {
 
 const timeoutAlert = ()=> {
   setTimeout(() => {
-    if(waitRep.value) alert('模型10秒内未响应，可能出现问题')
-  }, 10000);
+    if(waitRep.value) alert('模型30秒内未响应，可能出现问题')
+  }, 30000);
 }
 
 const close_test = () => {
