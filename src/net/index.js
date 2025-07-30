@@ -5,14 +5,14 @@ import router from "@/router";
 const authItemName = "token"
 const req_cd = 3;//操作的最小间隔
 
-const error_report = ({res}) => {
-    if (typeof(res)==="undefined") {
+const error_report = (err) => {
+    if (typeof err==="undefined") {
         console.log("未知错误，请查看控制台报错");
         ElMessage("未知错误，请查看控制台信息");
     }
     else {
-        console.log(res.message);
-        ElMessage(res.message);
+        console.log(err.response.data.message);
+        ElMessage.warning(err.response.data.message);
     }
 }
 

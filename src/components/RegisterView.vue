@@ -6,6 +6,25 @@ import router from "@/router/index.js";
 import {ElMessage, FormInstance, FormRules} from "element-plus";
 import axios from "axios";
 
+// ts接口,接口命名格式为Format开头的驼峰命名
+interface FormatRegForm {
+  username: string
+  password: string
+  password_repeat: string
+  email: string
+}
+
+//变量，由于数量很少不做区分，均为驼峰加Ref格式
+const ruleFormRef = ref<FormInstance>()
+const formRef= reactive<FormatRegForm>({
+  username: '',
+  password: '',
+  password_repeat: '',
+  email: '',
+})
+
+
+//用于表单验证
 const validateUsername = (rule, value, callback) => {
   if (value === '') {
     callback(new Error('请输入用户名'))
@@ -19,29 +38,14 @@ const validateUsername = (rule, value, callback) => {
 const validatePassword = (rule, value, callback) => {
   if (value === '') {
     callback(new Error('请再次输入密码'))
-  } else if (value !== form.password) {
+  } else if (value !== formRef.password) {
     callback(new Error("两次输入的密码不一致"))
   } else {
     callback()
   }
 }
 
-interface RuleForm {
-  username: string
-  password: string
-  password_repeat: string
-  email: string
-}
-
-const ruleFormRef = ref<FormInstance>()
-const form = reactive<RuleForm>({
-  username: '',
-  password: '',
-  password_repeat: '',
-  email: '',
-})
-
-const rules = reactive<FormRules<RuleForm>>({
+const rules = reactive<FormRules<FormatRegForm>>({
   username: [
     { validator: validateUsername, trigger: ['blur', 'change'] },
     { min: 2, max: 8, message: '用户名的长度必须在2-8个字符之间', trigger: ['blur', 'change'] },
@@ -59,18 +63,19 @@ const rules = reactive<FormRules<RuleForm>>({
   ],
 })
 
+//特殊变量
+let last_req_time = ref(0);//用于操作冷却
 
-let last_req_time = ref(0);
-
-const register = (formRef: FormInstance) => {
-  formRef.validate((isValid) => {
+//函数
+const register = (rule_formRef: FormInstance) => {
+  rule_formRef.validate((isValid) => {
     if(isValid) {
       if (last_req_time.value === 0) {
       cooldown(last_req_time);//设置请求cd，开发阶段默认不启用，先注释掉
       axios.post('/v1/auth/register', {
-        username: form.username,
-        password: form.password,
-        email: form.email,
+        username: formRef.username,
+        password: formRef.password,
+        email: formRef.email,
       }, {headers: {
           'Content-Type': 'application/json', // 设置请求头
           'Authorization': undefined,
@@ -78,13 +83,11 @@ const register = (formRef: FormInstance) => {
         withCredentials: true // 如果需要发送 cookie
       }).then(({data}) => {
             if (data.code===200) {
-              ElMessage('注册成功，跳转到登陆页面');
+              ElMessage.success('注册成功，跳转到登陆页面');
               router.push('/login')}
-            else error_report(data)
+            else ElMessage(data.message);
           }
-      ) .catch( error => {
-        if (error.response.status === 400) { ElMessage('重复的用户名或邮箱')}
-        else error_report(error) })
+      ) .catch( error => {error_report(error)})
     }
       else ElMessage.warning('操作过于频繁，请'+last_req_time.value+'秒后继续操作')
     }
@@ -110,25 +113,25 @@ const register = (formRef: FormInstance) => {
       <p class="mt-1 text-center text-sm text-gray-500">请根据邮箱地址进行注册</p>
     </div>
     <div style="margin-top: 50px">
-      <el-form :model="form" :rules="rules" ref="ruleFormRef">
+      <el-form :model="formRef" :rules="rules" ref="ruleFormRef">
         <el-form-item prop="username">
           <label for="email" class="block text-sm font-medium text-gray-700">用户名</label>
-          <el-input v-model="form.username" :maxlength="50" type="text" placeholder="用户名">
+          <el-input v-model="formRef.username" :maxlength="50" type="text" placeholder="用户名">
           </el-input>
         </el-form-item>
         <el-form-item prop="password">
           <label for="email" class="block text-sm font-medium text-gray-700">密码</label>
-          <el-input v-model="form.password" :maxlength="16" type="password" placeholder="密码">
+          <el-input v-model="formRef.password" :maxlength="16" type="password" placeholder="密码">
           </el-input>
         </el-form-item>
         <el-form-item prop="password_repeat">
           <label for="email" class="block text-sm font-medium text-gray-700">重复密码</label>
-          <el-input v-model="form.password_repeat" :maxlength="16" type="password" placeholder="重复密码">
+          <el-input v-model="formRef.password_repeat" :maxlength="16" type="password" placeholder="重复密码">
           </el-input>
         </el-form-item>
         <el-form-item prop="email">
           <label for="email" class="block text-sm font-medium text-gray-700">邮箱</label>
-          <el-input v-model="form.email" placeholder="电子邮件地址"> </el-input>
+          <el-input v-model="formRef.email" placeholder="电子邮件地址"> </el-input>
         </el-form-item>
       </el-form>
     </div>

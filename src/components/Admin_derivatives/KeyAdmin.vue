@@ -2,28 +2,40 @@
 import {ref} from "vue";
 import axios from "axios";
 import {error_report, takeAccessToken} from "@/net/index.js";
+import {ElMessage} from "element-plus";
+import {states} from "@/stores"
 
 const props = defineProps(['isKeyAdminOpen','username']);
 
-interface AccessKey {
+// ts接口,接口命名格式为Format开头的驼峰命名
+interface FormatAccessKey {
   id: number;
   keyValue: string;
   adminId: number;
   isActive: number | boolean;
   createdAt: string;
 }
-const total_keys = ref<AccessKey[]>();
-const keys = ref<AccessKey[]>();
 
-const pagination = ref({
+//响应式变量,使用蛇形命名,Ref后缀,表示均为ref声明的响应式数据
+const keys_pageRef = ref<FormatAccessKey[]>();
+
+//特殊数据
+const paginationRef = ref({
   current_page: 1,	//	当前页码，此处默认为第一页
   pages_num: 1,     //总页数
   total_data: 0,		//	总数据量（不是总页数），此处默认为0条数据
   row_page: 10,		//	每页展示多少条数据，此处为每页展示10条数据,这里可以硬编码修改，不依赖于其他操作
   data: [],			//	存储的展示数据条数，由row_page决定至多有多少条数据
 })
+const handle_page  = (page: number) => {
+  keys_pageRef.value = states.TotalKeys.slice((page-1)*paginationRef.value.row_page,page*paginationRef.value.row_page);
+}
+const handle_current_change_click = () => {
+  handle_page(paginationRef.value.current_page);
+}
 
-const getAccessKeys = () => {
+//函数,蛇形命名,需要以常见的操作名开头
+const get_access_keys = () => {
   axios.get('/v1/auth/access-keys', {headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${takeAccessToken()}`
@@ -31,33 +43,33 @@ const getAccessKeys = () => {
     withCredentials: true, // 如果需要发送 cookie
   }).then(({data}) => {
     if (data.code===200) {
-      total_keys.value = data.data;
-      total_keys.value.forEach((key) => { key.isActive = key.isActive === 1; }) //手动处理类型转换
-      pagination.value.total_data = data.data.length;
-      pagination.value.pages_num = Math.ceil(data.data.length/pagination.value.row_page);
-      handlePage(pagination.value.current_page);
-      //ElMessage('getkeys success.');
+      states.TotalKeys= data.data;
+      console.log(states.TotalKeys);
+      states.TotalKeys.forEach((key: FormatAccessKey) => { key.isActive = key.isActive === 1; }) //手动处理类型转换
+      paginationRef.value.total_data = data.data.length;
+      paginationRef.value.pages_num = Math.ceil(data.data.length/paginationRef.value.row_page);
+      handle_page(paginationRef.value.current_page);
     }
-    else error_report(data)
+    else ElMessage(data.message)
   }).catch(error => {error_report(error) })
 }
+get_access_keys();
 
-const delAccessKey = (i: number) => {
-  axios.delete('/v1/auth/access-keys/'+keys.value[i].id, {headers: {
+const del_access_key = (i: number) => {
+  axios.delete('/v1/auth/access-keys/'+keys_pageRef.value[i].id, {headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${takeAccessToken()}`
     },
     withCredentials: true, // 如果需要发送 cookie
   }).then(({data}) => {
     if (data.code===200) {
-      //ElMessage('delete success.');
-      getAccessKeys();
+      get_access_keys();
     }
-    else error_report(data)
+    else ElMessage(data.message)
   }).catch(error => {error_report(error) })
 }
 
-const createAccessKey = (k: AccessKey) => {
+const create_access_key = (k: FormatAccessKey) => {
   axios.post('/v1/auth/access-keys',k, {headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${takeAccessToken()}`
@@ -66,32 +78,22 @@ const createAccessKey = (k: AccessKey) => {
   }).then(({data}) => {
     if (data.code===200) {
       //ElMessage('create success.')
-      getAccessKeys();
+      get_access_keys();
     }
-    else error_report(data)
+    else ElMessage(data.message)
   }).catch(error => {error_report(error) })
-
 }
 
-const handlePage  = (page: number) => {
-  keys.value = total_keys.value.slice((page-1)*pagination.value.row_page,page*pagination.value.row_page);
-}
-
-const handleCurrentChangeClick = () => {
-  handlePage(pagination.value.current_page);
-}
-
-
-const get_accKey = (keys:AccessKey[]): string => {
+const get_accKey = (): string => {
   let str ='';
-  keys.forEach((key) => {
+  if (states.TotalKeys===undefined || states.TotalKeys.length===0) {return str}
+  states.TotalKeys.forEach((key: FormatAccessKey) => {
     if (key.isActive === true) { str =key.keyValue; return str;}
-  }  )
+  })
   return str;
 }
 
-defineExpose({total_keys,getAccessKeys,get_accKey})
-
+defineExpose({ get_access_keys,get_accKey})
 </script>
 
 <template>
@@ -111,32 +113,32 @@ defineExpose({total_keys,getAccessKeys,get_accKey})
           </thead>
           <tbody id="model-table-body">
           <!-- Rows will be dynamically inserted here by JavaScript -->
-          <tr class="justify-center items-center" v-for="(akey, index) in keys" :key="index">
+          <tr class="justify-center items-center" v-for="(akey, index) in keys_pageRef" :key="index">
             <td class="px-6 py-4">{{ username}}</td>
             <td class="px-6 py-4"><el-text style="white-space: nowrap;">{{akey.keyValue}}a</el-text></td>
             <td class="px-6 py-4"> <el-switch  v-model="akey.isActive" active-text="有效"
                                                inactive-text="失效" inline-prompt disabled/></td>
             <td class="px-6 py-4">{{akey.createdAt}}</td>
-            <td class="px-6 py-4"><el-button text type="danger" plain @click="delAccessKey(index)">删除</el-button></td>
+            <td class="px-6 py-4"><el-button text type="danger" plain @click="del_access_key(index)">删除</el-button></td>
           </tr>
           <tr>
             <td class="px-6 py-4"></td>
             <td class="px-6 py-4"></td>
             <td class="px-6 py-4"></td>
             <td class="px-6 py-4"></td>
-            <td class="px-6 py-4"><el-button type="primary" plain @click="createAccessKey">创建新的key</el-button></td>
+            <td class="px-6 py-4"><el-button type="primary" plain @click="create_access_key">创建新的key</el-button></td>
           </tr>
           </tbody>
         </table>
       </div>
       <div style="display: flex;justify-content: center;margin: 10px">
         <el-pagination  style="display: flex;justify-content: center;"
-                        v-model:current-page="pagination.current_page"
-                        v-model:page-size="pagination.row_page"
+                        v-model:current-page="paginationRef.current_page"
+                        v-model:page-size="paginationRef.row_page"
                         hide-on-single-page
                         layout="prev, pager, next"
-                        :total="pagination.total_data"
-                        @current-change="handleCurrentChangeClick"
+                        :total="paginationRef.total_data"
+                        @current-change="handle_current_change_click"
         />
       </div>
         <div class="flex justify-center space-x-3" >

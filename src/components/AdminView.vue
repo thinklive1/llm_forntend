@@ -1,23 +1,65 @@
 <script setup lang="ts">
 
-import {ElMessage, FormInstance} from "element-plus";
+import {ElMessage, FormInstance, FormRules} from "element-plus";
 import axios from "axios";
 import {error_report, logout, takeAccessToken} from "@/net/index.js";
-import { ref } from "vue";
+import {reactive, ref} from "vue";
 import KeyAdmin from "@/components/Admin_derivatives/KeyAdmin.vue";
-import ModelTest from "@/components/Admin_derivatives/ModelTest.vue";
+import ModelTest2Text from "@/components/Admin_derivatives/ModelTest2Text.vue";
 import {states} from "@/stores"
 import UsageSelect from "@/components/Admin_derivatives/UsageSelect.vue";
 
-//数据区
-const CAPABILITY_MAP = {
-  'text-to-text': '文生文',
-  'text-to-image': '文生图',
-  'image-to-text': '图生文',
-  'image-to-image': '图生图',
-};
+// ts接口,接口命名格式为Format开头的驼峰命名
+interface FormatLlmModel {
+  id: number;
+  displayName: string;
+  modelIdentifier: string;
+  urlBase: string;
+  capabilities: Array<"text-to-text">;
+  priority: number;
+  status: boolean | number;
+  createdAt?: string;
+  apiKey?: string;
+  updatedAt?: string;
+}
 
-const rules = {
+//开关变量,均以is开头，驼峰命名
+const isModalOpen = ref(false);//用于弹出编辑窗口
+const isKeyAdminOpen = ref(false);//用于弹出key管理窗口
+const isDialogVisible = ref(false);//用于弹出选择测试类型窗口
+const isUsageViewOpen = ref(false);//用于弹出使用量查看窗口
+let isUpdate = false;//仅用于区分更新模型和创建模型，不需要响应式。注意：退出更新模型窗口时，这个变量必然重置为false
+
+//局部变量,使用蛇形命名,Ref后缀,表示均为ref声明的响应式数据
+const user_nameRef = ref(sessionStorage.getItem('username'))
+const model_infoRef = ref<FormatLlmModel>({//编辑模型信息时的表单信息,默认保存最后一次编辑时的信息
+  id: 0,
+  displayName: '',
+  modelIdentifier: '',
+  urlBase: '',
+  capabilities: [],
+  priority: 1,
+  status: false,
+});
+
+const modelsRef= ref<FormatLlmModel[]>([])
+const capabilitiyRef= ref<string>('')
+const capabilitiesRef= ref<string[]>()
+
+//特殊数据
+const paginationRef = ref({//分页组件数据
+  current_page: 1,	//	当前页码，此处默认为第一页
+  pages_num: 1,     //总页数，默认为1
+  total_data: 0,		//	总数据量（不是总页数），此处默认为0条数据
+  row_page: 10,		//	每页展示多少条数据，此处为每页展示10条数据,这里可以硬编码修改，不依赖于其他操作
+  data: [],			//	存储的展示数据条数，由row_page决定至多有多少条数据
+})
+const handle_current_change_click = () => {//分页插件的配套函数
+  get_models();
+}
+
+const ruleFormRef = ref<FormInstance>()//用于表单校验
+const rules =  reactive<FormRules<FormatLlmModel>> ({//表单校验规则
   displayName: [
     { required: true, message: '请输入模型名称', trigger: ['blur', 'change'] },
     { min: 2, max: 50, message: '长度必须在2-50个字符之间', trigger: ['blur', 'change'] },
@@ -38,55 +80,10 @@ const rules = {
     { required: true, message: '请输入模型优先级', trigger: 'blur' },
     {type: 'number', message: '请输入合法的优先级', trigger: ['blur', 'change']}
   ],
-}
-
-
-const isModalOpen = ref(false);//用于弹出编辑窗口
-const isKeyAdminOpen = ref(false);//用于弹出key管理窗口
-const dialogVisible = ref(false);
-const isUsageViewOpen = ref(false);//用于弹出使用量查看窗口
-let is_update = false;//区分更新模型和创建模型，注意：退出更新模型窗口时，这个变量必然重置为false
-const user_name = ref(sessionStorage.getItem('username'))
-
-const pagination = ref({
-  current_page: 1,	//	当前页码，此处默认为第一页
-  pages_num: 1,
-  total_data: 0,		//	总数据量（不是总页数），此处默认为0条数据
-  row_page: 10,		//	每页展示多少条数据，此处为每页展示10条数据,这里可以硬编码修改，不依赖于其他操作
-  data: [],			//	存储的展示数据条数，由row_page决定至多有多少条数据
 })
 
-const ruleFormRef = ref<FormInstance>()
-const model_info = ref<LLM_Model>({//编辑模型信息时的表单信息,默认保存最后一次编辑时的信息
-  id: 0,
-  displayName: '',
-  modelIdentifier: '',
-  urlBase: '',
-  capabilities: [],
-  priority: 1,
-  status: false,
-});
-
-interface LLM_Model {
-  id: number;
-  displayName: string;
-  modelIdentifier: string;
-  urlBase: string;
-  capabilities: Array<"text-to-text">;
-  priority: number;
-  status: boolean | number;
-  createdAt?: string;
-  apiKey?: string;
-  updatedAt?: string;
-}
-
-
-const models= ref<LLM_Model[]>([])
-const capabilitiyRef= ref<string>('')
-const capabilitiesRef= ref<string[]>()
-
-//函数区
-const clean_model_info = (obj) => {//用于提交模型后清空模型表单
+//函数区,蛇形命名,需要以常见的操作名开头
+const clean_model_info = (obj: FormatLlmModel) => {//用于提交模型后清空模型表单
   Object.keys(obj).forEach(key => {
     delete obj[key];
   });
@@ -101,9 +98,9 @@ const get_model= (id:number) => { //请求单个模型信息，暂时用不到
   }).then(({data}) => {
     if (data.code===200) {
       //ElMessage('get_model success. modelid is '+data.data.id);
-      model_info.value = data.data;
+      model_infoRef.value = data.data;
     }
-    else error_report(data)
+    else ElMessage(data.message)
   }).catch(error => {error_report(error) })
 }
 
@@ -113,21 +110,21 @@ const get_models = () => { //得到当前分页（默认为1）的模型信息�
       'Authorization': `Bearer ${takeAccessToken()}`//令牌
     },
     withCredentials: true, // 如果需要发送 cookie
-    params:{'pageNum': pagination.value.current_page,
-      'pageSize': pagination.value.row_page,}
+    params:{'pageNum': paginationRef.value.current_page,
+      'pageSize': paginationRef.value.row_page,}
   }).then(({data}) => {
     if (data.code===200) {
       //ElMessage('getmodels success. Num is '+data.data.records.length);
-      models.value=data.data.records;
-      models.value.forEach((model: LLM_Model) => {
+      modelsRef.value=data.data.records;
+      modelsRef.value.forEach((model: FormatLlmModel) => {
         //console.log(model.status);
         model.status = model.status === 1;//数据库里的类型是int，为了避免麻烦这里手动处理类型转化
       })
-      pagination.value.current_page = data.data.current;
-      pagination.value.total_data = data.data.total;
-      pagination.value.pages_num = data.data.pages;
+      paginationRef.value.current_page = data.data.current;
+      paginationRef.value.total_data = data.data.total;
+      paginationRef.value.pages_num = data.data.pages;
     }
-    else error_report(data)
+    else ElMessage(data.message)
   }).catch(error => {error_report(error) })
 }
 get_models();
@@ -136,8 +133,8 @@ const change_status = (i:number)=>{
   let st = {
     status: 0,
   };
-  st.status = Number(models.value[i].status);
-  axios.post('/v1/models/'+models.value[i].id+'/status',st, {headers: {
+  st.status = Number(modelsRef.value[i].status);
+  axios.post('/v1/models/'+modelsRef.value[i].id+'/status',st, {headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${takeAccessToken()}`
     },
@@ -146,15 +143,15 @@ const change_status = (i:number)=>{
     if (data.code===200) {
       //ElMessage('update_model status success. updated modelname is '+data.data.displayName);
     }
-    else error_report(data)
+    else ElMessage(data.message)
   }).catch(error => {error_report(error) })
 }
 
 const post_model_impl = (formRef: FormInstance) => {//用于处理编辑模型信息提交逻辑，然后调用post_helper
-  console.log('Model info:', model_info.value); // 检查 model_info
-  if (is_update) {updateModel(formRef);return}
-  else if (!model_info.value.apiKey) {ElMessage('注册新模型时，apikey不能为空');return}
-  axios.post('/v1/models',model_info.value, {headers: {
+  console.log('Model info:', model_infoRef.value); // 检查 model_info
+  if (isUpdate) {update_model(formRef);return}
+  else if (!model_infoRef.value.apiKey) {ElMessage('注册新模型时，apikey不能为空');return}
+  axios.post('/v1/models',model_infoRef.value, {headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${takeAccessToken()}`
     },
@@ -162,13 +159,12 @@ const post_model_impl = (formRef: FormInstance) => {//用于处理编辑模型�
   }).then(({data}) => {
     if (data.code===200) {
       ElMessage('creat_model success. modelid is '+data.data.id);
-      clean_model_info(model_info.value);
+      clean_model_info(model_infoRef.value);
       get_models()
-      closeModel()
+      close_model()
     }
-    else ElMessage('something wrong')
+    else ElMessage(data.message)
   }).catch(error => {error_report(error) })
-
 }
 
 const post_model = (formRef: FormInstance) => {//更新和新建模型合用的入口，更新会用调用另一个函数
@@ -180,24 +176,23 @@ const post_model = (formRef: FormInstance) => {//更新和新建模型合用的�
   )
 }
 
-const editModel = (i)=>{//用于编辑模型
-  model_info.value =Object.assign({},models.value[i]);//能够点击编辑模型时，这个模型对象必然存在，因此不需要先Get
-  is_update = true;//表示此时是在编辑而不是创建模型，唯一能设置false的两个函数只有编辑界面的两个按钮对应函数
+const edit_model = (i)=>{//用于编辑模型
+  model_infoRef.value =Object.assign({},modelsRef.value[i]);//能够点击编辑模型时，这个模型对象必然存在，因此不需要先Get
+  isUpdate = true;//表示此时是在编辑而不是创建模型，唯一能设置false的两个函数只有编辑界面的两个按钮对应函数
   isModalOpen.value = true;
 }
 
-const updateModel = (formRef: FormInstance)=> {//由于apikey是不返回的，前端也可以不填，此时就不会提交给后端apikey参数，后端检测到这点可以不予更改
+const update_model = (formRef: FormInstance)=> {//由于apikey是不返回的，前端也可以不填，此时就不会提交给后端apikey参数，后端检测到这点可以不予更改
   formRef.validate((isvalid)=> {
-        if (isvalid) {
-          updateModel_impl();
-        } else ElMessage('请完整填写表单')
-      }
-  )
+    if (isvalid) {
+      update_model_impl();
+    } else ElMessage('请完整填写表单')
+  })
 }
 
-const updateModel_impl = ()=>{
-  is_update = false;
-  axios.put('/v1/models/'+model_info.value.id,model_info.value, {headers: {
+const update_model_impl = ()=>{
+  isUpdate = false;
+  axios.put('/v1/models/'+model_infoRef.value.id,model_infoRef.value, {headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${takeAccessToken()}`
     },
@@ -205,88 +200,86 @@ const updateModel_impl = ()=>{
   }).then(({data}) => {
     if (data.code===200) {
       ElMessage('update_model success. modelname is '+data.data.displayName);
-      clean_model_info(model_info.value)
+      clean_model_info(model_infoRef.value)
       get_models();
-      closeModel()
+      close_model()
     }
-    else error_report(data)
+    else ElMessage(data.message)
   }).catch(error => {error_report(error) })
 }
 
-const deleteModel = (i:number)=>{
-  model_info.value = models.value[i];
-  console.log('id:'+model_info.value.id+'\n'+'token:'+takeAccessToken());
-  axios.delete('/v1/models/'+model_info.value.id,{
+const delete_model = (i:number)=>{
+  model_infoRef.value = modelsRef.value[i];
+  console.log('id:'+model_infoRef.value.id+'\n'+'token:'+takeAccessToken());
+  axios.delete('/v1/models/'+model_infoRef.value.id,{
     withCredentials: true, // 如果需要发送 cookie
   }).then(({data}) => {
     if (data.code===200) {
       ElMessage('delete_model success');
-      models.value.splice(i, 1);
+      modelsRef.value.splice(i, 1);
       get_models()
-      clean_model_info(model_info.value);
+      clean_model_info(model_infoRef.value);
     }
-    else error_report(data)
+    else ElMessage(data.message)
   }).catch(error => {error_report(error) })
 }
 
-
-const testModel = (i:number)=>{//该函数的作用是获取一个可用的key，否则不进行后续操作，如果有key可用，进入到子组件ModelTest的入口函数
-  let str: string = keyAdminRef.value.get_accKey(keyAdminRef.value.total_keys);
-  let ModToTest: LLM_Model = models.value[i];
-  if (str === '') {ElMessage('当前账号没有可用的AccessKey，请先获取key');return}
-  else {
-    console.log('使用的key: '+str) ;
-    states.KeyInUse = str;
-    states.CapInTest= ModToTest.capabilities[0];
-    states.ModelToTest = ModToTest;
-    if (ModToTest.capabilities===undefined || ModToTest.capabilities.length===0) {ElMessage('模型支持功能为空'); return;}
-    else if (ModToTest.capabilities.length==1) TestRef.value.testEntry();
-    else {capabilitiesRef.value = ModToTest.capabilities; dialogVisible.value=true;}
+const test_model = (i:number)=>{//该函数的作用是获取一个可用的key，否则不进行后续操作，如果有key可用，进入到子组件ModelTest的入口函数
+  let str = '';
+  if (states.KeyInUse==='') {
+    str = KeyAdminRef.value.get_accKey();
+    if (str === '') {ElMessage('当前账号没有可用的AccessKey，请先获取key');return}
+    else states.KeyInUse = str;
   }
+  console.log('使用的key: '+states.KeyInUse) ;
+  let ModToTest: FormatLlmModel = modelsRef.value[i];
+  states.ModelToTest = ModToTest;
+  if (ModToTest.capabilities===undefined || ModToTest.capabilities.length===0) {ElMessage('模型支持功能为空'); return;}
+  else if (ModToTest.capabilities.length==1) {
+    states.CapInTest= ModToTest.capabilities[0];
+    TestRef.value.test_entry();
+  }
+  else {capabilitiesRef.value = ModToTest.capabilities; isDialogVisible.value=true;}
 }
 
-const openModel = () => { //弹出编辑窗口
+const open_model = () => { //弹出编辑窗口
   isModalOpen.value = true;
 };
 
-const closeModel = () => { //关闭编辑窗口
+const close_model = () => { //关闭编辑窗口
   isModalOpen.value = false;
-  if (is_update) clean_model_info(model_info.value);
-  is_update = false;//如果此时进行的是编辑而不是新增，需要重置，等价于直接设置false
+  if (isUpdate) clean_model_info(model_infoRef.value);
+  isUpdate = false;//如果此时进行的是编辑而不是新增，需要重置，等价于直接设置false
 };
 
-const handleCurrentChangeClick = () => {
-  get_models();
-}
-
-const openKeyAdmin = () => {
-  keyAdminRef.value.getAccessKeys();
+//子组件引用与其需要的函数,引用命名规范同vue组件名，但需要加Ref后缀，函数仍是蛇形命名
+const KeyAdminRef = ref<any>();
+const UsageRef = ref<any>();
+const TestRef = ref<any>();
+const open_key_admin = () => {
   isKeyAdminOpen.value = true;
 };
 
-const closeKeyAdmin = () => {
+const close_key_admin = () => {
   isKeyAdminOpen.value = false;
 };
 
-const openUsage = () => {
+const open_usage = () => {
   UsageRef.value.get_usage_datas();
   isUsageViewOpen.value = true;
 };
 
-const closeUsage = () => {
+const close_usage = () => {
   isUsageViewOpen.value = false;
 };
 
 const select_test = () => {
   if (capabilitiyRef.value==='') {ElMessage('必须选择一种测试');return;}
-  dialogVisible.value = false;
+  isDialogVisible.value = false;
   states.CapInTest = capabilitiyRef.value;
-  TestRef.value.testEntry();
+  TestRef.value.test_entry();
 }
 
-const keyAdminRef = ref<any>();
-const UsageRef = ref<any>();
-const TestRef = ref<any>();
 </script>
 
 <template>
@@ -300,16 +293,16 @@ const TestRef = ref<any>();
   <body class="bg-gray-50">
 
   <!-- accesskey管理窗口的组件 -->
-  <KeyAdmin :isKeyAdminOpen :username="user_name" @closeKey="closeKeyAdmin" ref="keyAdminRef"/>
-  <UsageSelect :is-usage-visible="isUsageViewOpen" @closeUsage="closeUsage" ref="UsageRef"></UsageSelect>
-  <ModelTest ref="TestRef" ></ModelTest>
-  <el-dialog v-model="dialogVisible" title="选择需要进行的测试" width="500" >
+  <KeyAdmin :isKeyAdminOpen :username="user_nameRef" @closeKey="close_key_admin" ref="KeyAdminRef"/>
+  <UsageSelect :is-usage-visible="isUsageViewOpen" @closeUsage="close_usage" ref="UsageRef"></UsageSelect>
+  <ModelTest2Text ref="TestRef" ></ModelTest2Text>
+  <el-dialog v-model="isDialogVisible" title="选择需要进行的测试" width="500" >
     <el-radio-group v-model="capabilitiyRef" >
       <el-radio v-for="capability in capabilitiesRef" :key="capability" :value="capability" size="large">{{capability}}</el-radio>
     </el-radio-group>
     <template #footer>
       <div class="dialog-footer">
-        <el-button @click="dialogVisible = false">取消测试</el-button>
+        <el-button @click="isDialogVisible = false">取消测试</el-button>
         <el-button type="primary" @click="select_test"> 确认测试 </el-button>
       </div>
     </template>
@@ -322,13 +315,13 @@ const TestRef = ref<any>();
         <p class="text-gray-600">集中管理、配置和监控所有接入的大模型。</p>
       </div>
       <el-container style="display: flex; justify-content: flex-end;  margin: 10px;">
-        <button id="keyAdmin-btn" @click="openKeyAdmin" class="bg-blue-300 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center" style="margin-right: 10px;">
+        <button id="keyAdmin-btn" @click="open_key_admin" class="bg-blue-300 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center" style="margin-right: 10px;">
           <span class="ml-2">管理AccessKeys</span>
         </button>
-        <button id="usage-btn" @click="openUsage" class="bg-blue-400 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center" style="margin-right: 10px;">
+        <button id="usage-btn" @click="open_usage" class="bg-blue-400 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center" style="margin-right: 10px;">
           <span class="ml-2">使用量查看</span>
         </button>
-        <button id="add-new-model-btn" @click="openModel" class="bg-blue-500 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center" style="margin-right: 10px;">
+        <button id="add-new-model-btn" @click="open_model" class="bg-blue-500 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center" style="margin-right: 10px;">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
           <span class="ml-2">注册新模型</span>
         </button>
@@ -337,19 +330,19 @@ const TestRef = ref<any>();
         <div class="modal-overlay absolute inset-0 bg-black opacity-50"></div>
         <div class="modal-content bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 p-6 relative">
           <h2 id="modal-title" @click="post_model(ruleFormRef)" class="text-xl font-bold mb-4">编辑模型信息</h2>
-          <el-form :model="model_info" :rules="rules" ref="ruleFormRef" id="model-form">
+          <el-form :model="model_infoRef" :rules="rules" ref="ruleFormRef" id="model-form">
             <input type="hidden" id="odel-id-input">
             <div class="grid grid-cols-2 gap-4 mb-4">
               <div>
                 <label for="name" class="block text-sm font-medium text-gray-700 mb-1">模型名称</label>
                 <el-form-item prop="displayName">
-                  <el-input type="text" size="small" :maxlength="50" :minlength="2" v-model="model_info.displayName" id="name" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="例如：OpenAI GPT-4o" required> </el-input>
+                  <el-input type="text" size="small" :maxlength="50" :minlength="2" v-model="model_infoRef.displayName" id="name" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="例如：OpenAI GPT-4o" required> </el-input>
                 </el-form-item>
               </div>
               <div>
                 <label for="modelId" class="block text-sm font-medium text-gray-700 mb-1">模型标识 (Model ID)</label>
                 <el-form-item prop="modelIdentifier">
-                  <el-input type="text" size="small" :maxlength="50" :minlength="2" v-model="model_info.modelIdentifier" id="modelId" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="例如：gpt-4o" required> </el-input>
+                  <el-input type="text" size="small" :maxlength="50" :minlength="2" v-model="model_infoRef.modelIdentifier" id="modelId" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="例如：gpt-4o" required> </el-input>
                 </el-form-item>
               </div>
             </div>
@@ -357,13 +350,13 @@ const TestRef = ref<any>();
               <div class="mb-4">
                 <label for="apiKey" class="block text-sm font-medium text-gray-700 mb-1">API 密钥</label>
                 <el-form-item prop="apiKey">
-                  <el-input type="password" size="small" v-model="model_info.apiKey" id="apiKey" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="新增时必填，编辑时留空则不更新"></el-input>
+                  <el-input type="password" size="small" v-model="model_infoRef.apiKey" id="apiKey" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="新增时必填，编辑时留空则不更新"></el-input>
                 </el-form-item>
               </div>
               <div class="mb-4">
                 <label for="priority" class="block text-sm font-medium text-gray-700 mb-1">优先级</label>
                 <el-form-item prop="priority">
-                  <el-input-number v-model="model_info.priority" :max="99" :min="1" style="width: 100%;" controls-position="right" size="small" />
+                  <el-input-number v-model="model_infoRef.priority" :max="99" :min="1" style="width: 100%;" controls-position="right" size="small" />
                 </el-form-item>
                 <p class="text-xs text-gray-500 mt-1">最小为1,数字越小，优先级越高。</p>
               </div>
@@ -371,12 +364,12 @@ const TestRef = ref<any>();
             <div class="mb-4">
               <label for="baseurl" class="block text-sm font-medium text-gray-700 mb-1">模型 url</label>
               <el-form-item prop="urlBase">
-                <el-input type="text" :maxlength="200" size="small" v-model="model_info.urlBase" id="baseurl" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="调用模型的url"></el-input>
+                <el-input type="text" :maxlength="200" size="small" v-model="model_infoRef.urlBase" id="baseurl" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="调用模型的url"></el-input>
               </el-form-item>
             </div>
             <div class="mb-6">
               <label class="block text-sm font-medium text-gray-700 mb-2">支持的功能</label>
-              <el-checkbox-group v-model="model_info.capabilities">
+              <el-checkbox-group v-model="model_infoRef.capabilities">
                 <div class="grid grid-cols-2 gap-2 p-3 border rounded-md">
                   <el-checkbox label="t2t" value="text-to-text">文生文</el-checkbox>
                   <el-checkbox label="t2i" value="text-to-image">文生图</el-checkbox>
@@ -386,7 +379,7 @@ const TestRef = ref<any>();
               </el-checkbox-group>
             </div>
             <div class="flex justify-end space-x-3">
-              <el-button @click="closeModel" id="cancel-btn" style="margin-top: 10px" class="bg-gray-200 text-gray-800 font-semibold px-4 py-2 rounded-lg hover:bg-gray-300">取消</el-button>
+              <el-button @click="close_model" id="cancel-btn" style="margin-top: 10px" class="bg-gray-200 text-gray-800 font-semibold px-4 py-2 rounded-lg hover:bg-gray-300">取消</el-button>
               <el-button type="primary" @click="post_model(ruleFormRef)" style="margin-top: 10px" class="bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700">提交模型</el-button>
             </div>
           </el-form>
@@ -421,7 +414,7 @@ const TestRef = ref<any>();
           </thead>
           <tbody id="model-table-body">
           <!-- Rows will be dynamically inserted here by JavaScript -->
-          <tr v-for="(model, index) in models" :key="index">
+          <tr v-for="(model, index) in modelsRef" :key="index">
             <td class="px-6 py-4">{{ model.priority }}</td>
             <td class="px-6 py-4">{{ model.displayName}} / {{ model.modelIdentifier}}</td>
             <td class="px-6 py-4">
@@ -432,9 +425,9 @@ const TestRef = ref<any>();
             <td class="px-6 py-4"> <el-switch  v-model="model.status" active-text="上线"
                                                inactive-text="下线" inline-prompt @change="change_status(index)" /></td>
             <td class="px-4 py-4 text-right">
-              <button @click="editModel(index)" class="font-medium text-blue-600 hover:underline p-1 ml-2">编辑</button>
-              <button @click="testModel(index)" class="font-medium text-green-600 hover:underline p-1 ml-2">测试</button>
-              <button @click="deleteModel(index)" class="font-medium text-red-600 hover:underline p-1 ml-2">删除</button>
+              <button @click="edit_model(index)" class="font-medium text-blue-600 hover:underline p-1 ml-2">编辑</button>
+              <button @click="test_model(index)" class="font-medium text-green-600 hover:underline p-1 ml-2">测试</button>
+              <button @click="delete_model(index)" class="font-medium text-red-600 hover:underline p-1 ml-2">删除</button>
             </td>
           </tr>
           </tbody>
@@ -443,16 +436,16 @@ const TestRef = ref<any>();
 
       <div style="display: flex;justify-content: center;margin: 10px">
         <el-pagination  style="display: flex;justify-content: center;"
-                        v-model:current-page="pagination.current_page"
-                        v-model:page-size="pagination.row_page"
+                        v-model:current-page="paginationRef.current_page"
+                        v-model:page-size="paginationRef.row_page"
                         hide-on-single-page
                         layout="prev, pager, next"
-                        :total="pagination.total_data"
-                        @current-change="handleCurrentChangeClick"
+                        :total="paginationRef.total_data"
+                        @current-change="handle_current_change_click"
         />
 
 
-        <el-text  style="position: absolute;top: 10px;right: 10px" >您的用户名为: {{user_name}}</el-text>
+        <el-text  style="position: absolute;top: 10px;right: 10px" >您的用户名为: {{ user_nameRef }}</el-text>
 
         <el-container style="position: absolute; bottom: 10px; right: 10px;" direction="horizontal">
           <el-button type="primary" plain  @click="logout()" class="bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center">

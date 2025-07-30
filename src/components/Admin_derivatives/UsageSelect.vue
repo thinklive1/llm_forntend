@@ -3,6 +3,8 @@
 import {h, ref, shallowRef} from "vue";
 import axios from "axios";
 import {error_report, takeAccessToken} from "@/net/index.js";
+import {ElMessage} from "element-plus";
+import {states} from "@/stores"
 
 const props = defineProps(['isUsageVisible']);
 
@@ -22,11 +24,10 @@ interface UsageReq {
 }
 
 
-const UsageDatas = ref<ModelUsage[]>();
-const UsageDataPage = ref<ModelUsage[]>();
-const UsageRequest = ref<UsageReq>({});
-const selectedDate = ref<string>();
-selectedDate.value = new Date().toISOString().slice(0, 10)
+const usageDataPageRef = ref<ModelUsage[]>();
+const usageRequestRef = ref<UsageReq>({});
+const selectedDateRef = ref<string>();
+selectedDateRef.value = new Date().toISOString().slice(0, 10)
 
 const shortcuts = [
   {
@@ -55,7 +56,7 @@ const disabledDate = (time: Date) => {
   return time.getTime() > Date.now()
 }
 
-const pagination = ref({
+const paginationRef= ref({
   current_page: 1,	//	当前页码，此处默认为第一页
   pages_num: 1,     //总页数
   total_data: 0,		//	总数据量（不是总页数），此处默认为0条数据
@@ -65,35 +66,34 @@ const pagination = ref({
 
 
 const get_usage_datas = () => {
-  axios.post('/v1/models/usage',UsageRequest.value, {headers: {
+  axios.post('/v1/models/usage',usageRequestRef.value, {headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${takeAccessToken()}`
     },
     withCredentials: true, // 如果需要发送 cookie
   }).then(({data}) => {
     if (data.code===200) {
-      UsageDatas.value = data.data;
+      states.Usages = data.data;
       handleCurrentChangeClick();
-      pagination.value.total_data = data.data.length;
-      pagination.value.pages_num = Math.ceil(data.data.length/pagination.value.row_page);
-      handlePage(pagination.value.current_page);
+      paginationRef.value.total_data = data.data.length;
+      paginationRef.value.pages_num = Math.ceil(data.data.length/paginationRef.value.row_page);
+      handlePage(paginationRef.value.current_page);
     }
-    else error_report(data)
+    else ElMessage(data.message)
   }).catch(error => {error_report(error) })
 }
 
 const change_date = () => {
-  console.log(selectedDate.value)
-  UsageRequest.value.date = selectedDate.value;
+  usageRequestRef.value.date = selectedDateRef.value;
   get_usage_datas();
 }
 
 const handlePage  = (page: number) => {
-  UsageDataPage.value = UsageDatas.value.slice((page-1)*pagination.value.row_page,page*pagination.value.row_page);
+  usageDataPageRef.value = states.Usages.slice((page-1)*paginationRef.value.row_page,page*paginationRef.value.row_page);
 }
 
 const handleCurrentChangeClick = () => {
-  handlePage(pagination.value.current_page);
+  handlePage(paginationRef.value.current_page);
 }
 
 defineExpose({get_usage_datas})
@@ -101,12 +101,12 @@ defineExpose({get_usage_datas})
 
 <template>
 
-  <div v-if="isUsageVisible" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+  <div v-if="props.isUsageVisible" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
     <div class="h-max-3/4 w-1/3 modal-content bg-white rounded-lg shadow-xl mx-4 p-6 relative max-h-120 overflow-scroll">
       <div class="bg-white rounded-lg shadow-sm">
         <div class="flex items-center justify-center content-center">
         <el-text>当前选择的日期：</el-text>
-        <el-date-picker value-format="YYYY-MM-DD" v-model="selectedDate" @change="change_date" type="date" placeholder="Pick a day" :disabled-date="disabledDate" :shortcuts="shortcuts" size="default" />
+        <el-date-picker value-format="YYYY-MM-DD" v-model="selectedDateRef" @change="change_date" type="date" placeholder="Pick a day" :disabled-date="disabledDate" :shortcuts="shortcuts" size="default" />
         </div>
         <div style="border-top: 1px solid #ccc; margin-top: 4px ;"></div>
         <table class="w-full text-sm text-left text-gray-500 overflow-scroll">
@@ -120,7 +120,7 @@ defineExpose({get_usage_datas})
           </thead>
           <tbody id="model-table-body">
           <!-- Rows will be dynamically inserted here by JavaScript -->
-          <tr class="justify-center items-center border-gray-700 " v-for="(usage, index) in UsageDataPage" :key="index">
+          <tr class="justify-center items-center border-gray-700 " v-for="(usage, index) in usageDataPageRef" :key="index">
             <td class="px-6 py-4">{{usage.modelIdentifier}}</td>
             <td class="px-6 py-4">{{usage.totalRequests}}</td>
             <td class="px-6 py-4">{{usage.successCount}}</td>
@@ -131,11 +131,11 @@ defineExpose({get_usage_datas})
       </div>
       <div style="display: flex;justify-content: center;margin: 10px">
         <el-pagination  style="display: flex;justify-content: center;"
-                        v-model:current-page="pagination.current_page"
-                        v-model:page-size="pagination.row_page"
+                        v-model:current-page="paginationRef.current_page"
+                        v-model:page-size="paginationRef.row_page"
                         hide-on-single-page
                         layout="prev, pager, next"
-                        :total="pagination.total_data"
+                        :total="paginationRef.total_data"
                         @current-change="handleCurrentChangeClick"
         />
       </div>
