@@ -224,12 +224,11 @@ const delete_model = (i:number)=>{
   }).catch(error => {error_report(error) })
 }
 
-const test_model = (i:number)=>{//该函数的作用是获取一个可用的key，否则不进行后续操作，如果有key可用，进入到子组件ModelTest的入口函数
-  let str = '';
+const test_model = async (i:number)=>{//该函数的作用是获取一个可用的key，否则不进行后续操作，如果有key可用，进入到子组件ModelTest的入口函数
   if (states.KeyInUse==='') {
-    str = KeyAdminRef.value.get_accKey();
-    if (str === '') {ElMessage('当前账号没有可用的AccessKey，请先获取key');return}
-    else states.KeyInUse = str;
+    console.log('start finding key')
+    await KeyAdminRef.value.get_accKey();
+    if (states.KeyInUse=== '') {ElMessage('当前账号没有可用的AccessKey，请先获取key');return}
   }
   console.log('使用的key: '+states.KeyInUse) ;
   let ModToTest: FormatLlmModel = modelsRef.value[i];
@@ -240,6 +239,7 @@ const test_model = (i:number)=>{//该函数的作用是获取一个可用的key�
     TestRef.value.test_entry();
   }
   else {capabilitiesRef.value = ModToTest.capabilities; isDialogVisible.value=true;}
+  return 'test'
 }
 
 const open_model = () => { //弹出编辑窗口

@@ -35,8 +35,9 @@ const handle_current_change_click = () => {
 }
 
 //函数,蛇形命名,需要以常见的操作名开头
-const get_access_keys = () => {
-  axios.get('/v1/auth/access-keys', {headers: {
+const get_access_keys = async () => {//异步关系：必须先等待get操作完成再返回
+  console.log('start getkeys')
+  await axios.get('/v1/auth/access-keys', {headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${takeAccessToken()}`
     },
@@ -44,7 +45,6 @@ const get_access_keys = () => {
   }).then(({data}) => {
     if (data.code===200) {
       states.TotalKeys= data.data;
-      console.log(states.TotalKeys);
       states.TotalKeys.forEach((key: FormatAccessKey) => { key.isActive = key.isActive === 1; }) //手动处理类型转换
       paginationRef.value.total_data = data.data.length;
       paginationRef.value.pages_num = Math.ceil(data.data.length/paginationRef.value.row_page);
@@ -52,8 +52,21 @@ const get_access_keys = () => {
     }
     else ElMessage(data.message)
   }).catch(error => {error_report(error) })
+  console.log('get_access_keys finished');
+  return []
 }
-get_access_keys();
+
+const get_accKey = async () => {//异步关系：必须先获取所有key
+  console.log('start getkey')
+  await get_access_keys();
+  if (states.TotalKeys=== null || states.TotalKeys.length===0) {return;}
+  states.TotalKeys.forEach((key: FormatAccessKey) => {
+    if (key.isActive === true) { states.KeyInUse =key.keyValue; return;}
+  })
+  console.log('get_acckey finished');
+  return 'get key '
+}
+
 
 const del_access_key = (i: number) => {
   axios.delete('/v1/auth/access-keys/'+keys_pageRef.value[i].id, {headers: {
@@ -84,14 +97,7 @@ const create_access_key = (k: FormatAccessKey) => {
   }).catch(error => {error_report(error) })
 }
 
-const get_accKey = (): string => {
-  let str ='';
-  if (states.TotalKeys===undefined || states.TotalKeys.length===0) {return str}
-  states.TotalKeys.forEach((key: FormatAccessKey) => {
-    if (key.isActive === true) { str =key.keyValue; return str;}
-  })
-  return str;
-}
+
 
 defineExpose({ get_access_keys,get_accKey})
 </script>

@@ -8,6 +8,7 @@ import {states} from "@/stores"
 
 const props = defineProps(['isUsageVisible']);
 
+// ts接口,接口命名格式为Format开头的驼峰命名
 interface ModelUsage {
   date: Date;
   modelId: number;
@@ -24,11 +25,13 @@ interface UsageReq {
 }
 
 
-const usageDataPageRef = ref<ModelUsage[]>();
-const usageRequestRef = ref<UsageReq>({});
-const selectedDateRef = ref<string>();
-selectedDateRef.value = new Date().toISOString().slice(0, 10)
+//响应式变量,使用蛇形命名,Ref后缀,表示均为ref声明的响应式数据
+const usage_data_pageRef = ref<ModelUsage[]>();
+const usage_requestRef = ref<UsageReq>({});
+const selected_dateRef = ref<string>();
+selected_dateRef.value = new Date().toISOString().slice(0, 10)
 
+//特殊数据
 const shortcuts = [
   {
     text: 'Today',
@@ -52,11 +55,11 @@ const shortcuts = [
   },
 ]
 
-const disabledDate = (time: Date) => {
+const find_disabled_date = (time: Date) => {
   return time.getTime() > Date.now()
 }
 
-const paginationRef= ref({
+const paginationRef = ref({
   current_page: 1,	//	当前页码，此处默认为第一页
   pages_num: 1,     //总页数
   total_data: 0,		//	总数据量（不是总页数），此处默认为0条数据
@@ -64,9 +67,9 @@ const paginationRef= ref({
   data: [],			//	存储的展示数据条数，由row_page决定至多有多少条数据
 })
 
-
+//函数,蛇形命名,需要以常见的操作名开头
 const get_usage_datas = () => {
-  axios.post('/v1/models/usage',usageRequestRef.value, {headers: {
+  axios.post('/v1/models/usage',usage_requestRef.value, {headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${takeAccessToken()}`
     },
@@ -84,12 +87,12 @@ const get_usage_datas = () => {
 }
 
 const change_date = () => {
-  usageRequestRef.value.date = selectedDateRef.value;
+  usage_requestRef.value.date = selected_dateRef.value;
   get_usage_datas();
 }
 
 const handlePage  = (page: number) => {
-  usageDataPageRef.value = states.Usages.slice((page-1)*paginationRef.value.row_page,page*paginationRef.value.row_page);
+  usage_data_pageRef.value = states.Usages.slice((page-1)*paginationRef.value.row_page,page*paginationRef.value.row_page);
 }
 
 const handleCurrentChangeClick = () => {
@@ -106,7 +109,7 @@ defineExpose({get_usage_datas})
       <div class="bg-white rounded-lg shadow-sm">
         <div class="flex items-center justify-center content-center">
         <el-text>当前选择的日期：</el-text>
-        <el-date-picker value-format="YYYY-MM-DD" v-model="selectedDateRef" @change="change_date" type="date" placeholder="Pick a day" :disabled-date="disabledDate" :shortcuts="shortcuts" size="default" />
+        <el-date-picker value-format="YYYY-MM-DD" v-model="selected_dateRef" @change="change_date" type="date" placeholder="Pick a day" :disabled-date="find_disabled_date" :shortcuts="shortcuts" size="default" />
         </div>
         <div style="border-top: 1px solid #ccc; margin-top: 4px ;"></div>
         <table class="w-full text-sm text-left text-gray-500 overflow-scroll">
@@ -120,7 +123,7 @@ defineExpose({get_usage_datas})
           </thead>
           <tbody id="model-table-body">
           <!-- Rows will be dynamically inserted here by JavaScript -->
-          <tr class="justify-center items-center border-gray-700 " v-for="(usage, index) in usageDataPageRef" :key="index">
+          <tr class="justify-center items-center border-gray-700 " v-for="(usage, index) in usage_data_pageRef" :key="index">
             <td class="px-6 py-4">{{usage.modelIdentifier}}</td>
             <td class="px-6 py-4">{{usage.totalRequests}}</td>
             <td class="px-6 py-4">{{usage.successCount}}</td>
