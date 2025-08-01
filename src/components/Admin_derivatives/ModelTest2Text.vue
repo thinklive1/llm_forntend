@@ -6,6 +6,8 @@ import {error_report, takeAccessToken} from "@/net/index.js";
 import {ElMessage, FormInstance, FormRules} from "element-plus";
 import {states} from "@/stores"
 
+console.log('init text test')
+
 // ts接口,接口命名格式为Format开头的驼峰命名
 interface FormatMessage {
   role: string;
@@ -25,7 +27,8 @@ interface FormatImage {
 
 interface FormatRequestData {
   userMessage: string;
-  modelIdentifier: string;
+  modelIdentifier?: string;
+  modelInternalId?: number;
   history?: FormatMessage[];
   options?: FormatOptionDatas;
   images?: FormatImage[];
@@ -36,12 +39,13 @@ interface FormatResponseData {
   usedModelIdentifier: string;
 }
 
-interface FormatImageUrl {
-  url: string;
+interface FormatImageInput {
+  url?: string;
+  base64?: string;
 }
 
 interface FormatOptionData {
-  images: FormatImageUrl[];
+  images: FormatImageInput[];
   history: FormatMessage[];
   temperature: number;
   max_tokens: number;
@@ -74,7 +78,7 @@ const option_dataRef = ref<FormatOptionData>({
       frequency_penalty: 0.0,
     }
 )
-const image_url_to_sendRef = ref<FormatImageUrl>({
+const image_url_to_sendRef = ref<FormatImageInput>({
   url: ''
 });
 
@@ -127,7 +131,6 @@ const send_chat =() => {
   axios.post('/v1/chat', reqRef.value,{headers: {
       'Content-Type': 'application/json',
       'ACCESS-KEY': states.KeyInUse,
-      'Authorization': `Bearer ${takeAccessToken()}`
     },
     withCredentials: true, // 如果需要发送 cookie
   }).then(({data}) => {
@@ -189,15 +192,15 @@ defineExpose({test_entry})
           </div>
         </div>
         <div class="flex justify-end">
-        <el-image class="max-w-1/3" v-if="isResGet && states.CapInTest==='image-to-text'" :src="image_url_to_sendRef.url"></el-image>
+          <el-image class="max-w-1/3" v-if="isResGet && states.CapInTest==='image-to-text'" :src="image_url_to_sendRef.url"></el-image>
         </div>
         <div v-if="isResGet" class="flex items-center">
-              <div class="bg-gray-200 hover:text-black flex items-center justify-center h-15 font-bold shadow-lg">
-                {{ response_dataRef.usedModelIdentifier }}
-              </div>
-              <div class="m-4 bg-blue-100 bg-white rounded-lg shadow-lg p-6 max-w-3/4 ml-4 flex flex-col" style="margin: 5px">
-                <p class="mb-4">{{ response_dataRef.assistantMessage }}</p>
-              </div>
+          <div class="bg-gray-200 hover:text-black flex items-center justify-center h-15 font-bold shadow-lg">
+            {{ response_dataRef.usedModelIdentifier }}
+          </div>
+          <div class="m-4 bg-blue-100 bg-white rounded-lg shadow-lg p-6 max-w-3/4 ml-4 flex flex-col" style="margin: 5px">
+            <p class="mb-4">{{ response_dataRef.assistantMessage }}</p>
+          </div>
         </div>
         <div v-if="!isResGet" class="flex justify-end">
           <el-card class=" text-center w-1/3" shadow="always">
@@ -252,15 +255,15 @@ defineExpose({test_entry})
                         </el-form-item>
                       </div>
                       <div class="mb-4">
-                        <label for="max_tokens" class="block text-sm font-medium text-gray-700 mb-1">top_p:</label>
+                        <label for="top_p" class="block text-sm font-medium text-gray-700 mb-1">top_p:</label>
                         <el-form-item prop="top_p">
                           <el-input-number v-model="option_dataRef.top_p" :max="1.0" :min="0.0" :step="0.1" :precision="1" style="width: 100%;" controls-position="right" size="small" />
                         </el-form-item>
                       </div>
                       <div class="mb-4">
-                        <label for="max_tokens" class="block text-sm font-medium text-gray-700 mb-1">频率惩罚:</label>
+                        <label for="fre_pena" class="block text-sm font-medium text-gray-700 mb-1">频率惩罚:</label>
                         <el-form-item prop="frequency_penalty">
-                          <el-input-number v-model="option_dataRef.frequency_penalty" :max="1.0" :min="0.0" :step="0.1" :precision="1" style="width: 100%;" controls-position="right" size="small" />
+                          <el-input-number v-model="option_dataRef.frequency_penalty" :max="2.0" :min="-2.0" :step="0.1" :precision="1" style="width: 100%;" controls-position="right" size="small" />
                         </el-form-item>
                       </div>
                     </div>
@@ -286,7 +289,6 @@ defineExpose({test_entry})
       </div>
     </div>
   </div>
-
 
 </template>
 

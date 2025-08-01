@@ -3,11 +3,12 @@
 import {ElMessage, FormInstance, FormRules} from "element-plus";
 import axios from "axios";
 import {error_report, logout, takeAccessToken} from "@/net/index.js";
-import {reactive, ref} from "vue";
+import {defineAsyncComponent, reactive, ref} from "vue";
 import KeyAdmin from "@/components/Admin_derivatives/KeyAdmin.vue";
 import ModelTest2Text from "@/components/Admin_derivatives/ModelTest2Text.vue";
 import {states} from "@/stores"
 import UsageSelect from "@/components/Admin_derivatives/UsageSelect.vue";
+import ModelTest2Image from "@/components/Admin_derivatives/ModelTest2Image.vue";
 
 // ts接口,接口命名格式为Format开头的驼峰命名
 interface FormatLlmModel {
@@ -176,7 +177,7 @@ const post_model = (formRef: FormInstance) => {//更新和新建模型合用的�
   )
 }
 
-const edit_model = (i)=>{//用于编辑模型
+const edit_model = (i: number)=>{//用于编辑模型
   model_infoRef.value =Object.assign({},modelsRef.value[i]);//能够点击编辑模型时，这个模型对象必然存在，因此不需要先Get
   isUpdate = true;//表示此时是在编辑而不是创建模型，唯一能设置false的两个函数只有编辑界面的两个按钮对应函数
   isModalOpen.value = true;
@@ -224,6 +225,12 @@ const delete_model = (i:number)=>{
   }).catch(error => {error_report(error) })
 }
 
+const switch_test = (str:string)=>{
+  if (str.slice(-4)==='text') TextTestRef.value.test_entry();
+  else if (str.slice(-5)==='image') ImageTestRef.value.test_entry();
+  else ElMessage.warning('未登记的模型能力');
+}
+
 const test_model = async (i:number)=>{//该函数的作用是获取一个可用的key，否则不进行后续操作，如果有key可用，进入到子组件ModelTest的入口函数
   if (states.KeyInUse==='') {
     console.log('start finding key')
@@ -236,7 +243,7 @@ const test_model = async (i:number)=>{//该函数的作用是获取一个可用�
   if (ModToTest.capabilities===undefined || ModToTest.capabilities.length===0) {ElMessage('模型支持功能为空'); return;}
   else if (ModToTest.capabilities.length==1) {
     states.CapInTest= ModToTest.capabilities[0];
-    TestRef.value.test_entry();
+    switch_test(states.CapInTest);
   }
   else {capabilitiesRef.value = ModToTest.capabilities; isDialogVisible.value=true;}
   return 'test'
@@ -255,7 +262,8 @@ const close_model = () => { //关闭编辑窗口
 //子组件引用与其需要的函数,引用命名规范同vue组件名，但需要加Ref后缀，函数仍是蛇形命名
 const KeyAdminRef = ref<any>();
 const UsageRef = ref<any>();
-const TestRef = ref<any>();
+const TextTestRef = ref<any>();
+const ImageTestRef = ref<any>();
 const open_key_admin = () => {
   isKeyAdminOpen.value = true;
 };
@@ -277,7 +285,7 @@ const select_test = () => {
   if (capabilitiyRef.value==='') {ElMessage('必须选择一种测试');return;}
   isDialogVisible.value = false;
   states.CapInTest = capabilitiyRef.value;
-  TestRef.value.test_entry();
+  switch_test(states.CapInTest);
 }
 
 </script>
@@ -292,10 +300,20 @@ const select_test = () => {
 
   <body class="bg-gray-50">
 
-  <!-- accesskey管理窗口的组件 -->
+  <!-- 以下四个为子组件，如果需要优化性能可以通过异步组件实现懒加载，鉴于组件规模都不大这里先全部初始化 -->
+  <!-- accesskey管理窗口组件 -->
   <KeyAdmin :isKeyAdminOpen :username="user_nameRef" @closeKey="close_key_admin" ref="KeyAdminRef"/>
-  <UsageSelect :is-usage-visible="isUsageViewOpen" @closeUsage="close_usage" ref="UsageRef"></UsageSelect>
-  <ModelTest2Text ref="TestRef" ></ModelTest2Text>
+
+  <!-- 使用量查看窗口组件 -->
+  <UsageSelect :is-usage-visible="isUsageViewOpen" @closeUsage="close_usage" ref="UsageRef"/>
+
+  <!-- 生文类型模型测试窗口组件 -->
+  <ModelTest2Text ref="TextTestRef"/>
+
+  <!-- 生图类型模型测试窗口组件 -->
+  <ModelTest2Image ref="ImageTestRef"/>
+
+  <!-- 模型测试类型选择窗口组件 -->
   <el-dialog v-model="isDialogVisible" title="选择需要进行的测试" width="500" >
     <el-radio-group v-model="capabilitiyRef" >
       <el-radio v-for="capability in capabilitiesRef" :key="capability" :value="capability" size="large">{{capability}}</el-radio>
@@ -308,6 +326,68 @@ const select_test = () => {
     </template>
   </el-dialog>
 
+  <!-- 模型编辑窗口 -->
+  <div v-if="isModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+    <div class="modal-overlay absolute inset-0 bg-black opacity-50"></div>
+    <div class="modal-content bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 p-6 relative">
+      <h2 id="modal-title" @click="post_model(ruleFormRef)" class="text-xl font-bold mb-4">编辑模型信息</h2>
+      <el-form :model="model_infoRef" :rules="rules" ref="ruleFormRef" id="model-form">
+        <input type="hidden" id="odel-id-input">
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <label for="name" class="block text-sm font-medium text-gray-700 mb-1">模型名称</label>
+            <el-form-item prop="displayName">
+              <el-input type="text" size="small" :maxlength="50" :minlength="2" v-model="model_infoRef.displayName" id="name" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="例如：OpenAI GPT-4o" required> </el-input>
+            </el-form-item>
+          </div>
+          <div>
+            <label for="modelId" class="block text-sm font-medium text-gray-700 mb-1">模型标识 (Model ID)</label>
+            <el-form-item prop="modelIdentifier">
+              <el-input type="text" size="small" :maxlength="50" :minlength="2" v-model="model_infoRef.modelIdentifier" id="modelId" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="例如：gpt-4o" required> </el-input>
+            </el-form-item>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <div class="mb-4">
+            <label for="apiKey" class="block text-sm font-medium text-gray-700 mb-1">API 密钥</label>
+            <el-form-item prop="apiKey">
+              <el-input type="password" size="small" v-model="model_infoRef.apiKey" id="apiKey" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="新增时必填，编辑时留空则不更新"></el-input>
+            </el-form-item>
+          </div>
+          <div class="mb-4">
+            <label for="priority" class="block text-sm font-medium text-gray-700 mb-1">优先级</label>
+            <el-form-item prop="priority">
+              <el-input-number v-model="model_infoRef.priority" :max="99" :min="1" style="width: 100%;" controls-position="right" size="small" />
+            </el-form-item>
+            <p class="text-xs text-gray-500 mt-1">最小为1,数字越小，优先级越高。</p>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label for="baseurl" class="block text-sm font-medium text-gray-700 mb-1">模型 url</label>
+          <el-form-item prop="urlBase">
+            <el-input type="text" :maxlength="200" size="small" v-model="model_infoRef.urlBase" id="baseurl" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="调用模型的url"></el-input>
+          </el-form-item>
+        </div>
+        <div class="mb-6">
+          <label class="block text-sm font-medium text-gray-700 mb-2">支持的功能</label>
+          <el-checkbox-group v-model="model_infoRef.capabilities">
+            <div class="grid grid-cols-2 gap-2 p-3 border rounded-md">
+              <el-checkbox label="t2t" value="text-to-text">文生文</el-checkbox>
+              <el-checkbox label="t2i" value="text-to-image">文生图</el-checkbox>
+              <el-checkbox label="i2t" value="image-to-text">图生文</el-checkbox>
+              <el-checkbox label="i2i" value="image-to-image">图生图</el-checkbox>
+            </div>
+          </el-checkbox-group>
+        </div>
+        <div class="flex justify-end space-x-3">
+          <el-button @click="close_model" id="cancel-btn" style="margin-top: 10px" class="bg-gray-200 text-gray-800 font-semibold px-4 py-2 rounded-lg hover:bg-gray-300">取消</el-button>
+          <el-button type="primary" @click="post_model(ruleFormRef)" style="margin-top: 10px" class="bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700">提交模型</el-button>
+        </div>
+      </el-form>
+    </div>
+  </div>
+
+  <!-- 头部菜单 -->
   <div class="p-6 min-h-screen">
     <header class="flex items-center justify-between pb-4 border-b">
       <div>
@@ -326,68 +406,9 @@ const select_test = () => {
           <span class="ml-2">注册新模型</span>
         </button>
       </el-container>
-      <div v-if="isModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-        <div class="modal-overlay absolute inset-0 bg-black opacity-50"></div>
-        <div class="modal-content bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 p-6 relative">
-          <h2 id="modal-title" @click="post_model(ruleFormRef)" class="text-xl font-bold mb-4">编辑模型信息</h2>
-          <el-form :model="model_infoRef" :rules="rules" ref="ruleFormRef" id="model-form">
-            <input type="hidden" id="odel-id-input">
-            <div class="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label for="name" class="block text-sm font-medium text-gray-700 mb-1">模型名称</label>
-                <el-form-item prop="displayName">
-                  <el-input type="text" size="small" :maxlength="50" :minlength="2" v-model="model_infoRef.displayName" id="name" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="例如：OpenAI GPT-4o" required> </el-input>
-                </el-form-item>
-              </div>
-              <div>
-                <label for="modelId" class="block text-sm font-medium text-gray-700 mb-1">模型标识 (Model ID)</label>
-                <el-form-item prop="modelIdentifier">
-                  <el-input type="text" size="small" :maxlength="50" :minlength="2" v-model="model_infoRef.modelIdentifier" id="modelId" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="例如：gpt-4o" required> </el-input>
-                </el-form-item>
-              </div>
-            </div>
-            <div class="grid grid-cols-2 gap-4 mb-4">
-              <div class="mb-4">
-                <label for="apiKey" class="block text-sm font-medium text-gray-700 mb-1">API 密钥</label>
-                <el-form-item prop="apiKey">
-                  <el-input type="password" size="small" v-model="model_infoRef.apiKey" id="apiKey" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="新增时必填，编辑时留空则不更新"></el-input>
-                </el-form-item>
-              </div>
-              <div class="mb-4">
-                <label for="priority" class="block text-sm font-medium text-gray-700 mb-1">优先级</label>
-                <el-form-item prop="priority">
-                  <el-input-number v-model="model_infoRef.priority" :max="99" :min="1" style="width: 100%;" controls-position="right" size="small" />
-                </el-form-item>
-                <p class="text-xs text-gray-500 mt-1">最小为1,数字越小，优先级越高。</p>
-              </div>
-            </div>
-            <div class="mb-4">
-              <label for="baseurl" class="block text-sm font-medium text-gray-700 mb-1">模型 url</label>
-              <el-form-item prop="urlBase">
-                <el-input type="text" :maxlength="200" size="small" v-model="model_infoRef.urlBase" id="baseurl" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="调用模型的url"></el-input>
-              </el-form-item>
-            </div>
-            <div class="mb-6">
-              <label class="block text-sm font-medium text-gray-700 mb-2">支持的功能</label>
-              <el-checkbox-group v-model="model_infoRef.capabilities">
-                <div class="grid grid-cols-2 gap-2 p-3 border rounded-md">
-                  <el-checkbox label="t2t" value="text-to-text">文生文</el-checkbox>
-                  <el-checkbox label="t2i" value="text-to-image">文生图</el-checkbox>
-                  <el-checkbox label="i2t" value="image-to-text">图生文</el-checkbox>
-                  <el-checkbox label="i2i" value="image-to-image">图生图</el-checkbox>
-                </div>
-              </el-checkbox-group>
-            </div>
-            <div class="flex justify-end space-x-3">
-              <el-button @click="close_model" id="cancel-btn" style="margin-top: 10px" class="bg-gray-200 text-gray-800 font-semibold px-4 py-2 rounded-lg hover:bg-gray-300">取消</el-button>
-              <el-button type="primary" @click="post_model(ruleFormRef)" style="margin-top: 10px" class="bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700">提交模型</el-button>
-            </div>
-          </el-form>
-        </div>
-      </div>
-
     </header>
 
+    <!-- 文字说明 -->
     <main class="mt-6">
       <div class="p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg mb-6">
         <div class="flex">
@@ -401,6 +422,7 @@ const select_test = () => {
         </div>
       </div>
 
+      <!-- 模型展示 -->
       <div class="bg-white rounded-lg shadow-sm overflow-hidden">
         <table class="w-full text-sm text-left text-gray-500">
           <thead class="text-xs text-gray-700 uppercase bg-gray-50">
@@ -434,6 +456,7 @@ const select_test = () => {
         </table>
       </div>
 
+      <!-- 分页组件 -->
       <div style="display: flex;justify-content: center;margin: 10px">
         <el-pagination  style="display: flex;justify-content: center;"
                         v-model:current-page="paginationRef.current_page"
@@ -444,9 +467,7 @@ const select_test = () => {
                         @current-change="handle_current_change_click"
         />
 
-
         <el-text  style="position: absolute;top: 10px;right: 10px" >您的用户名为: {{ user_nameRef }}</el-text>
-
         <el-container style="position: absolute; bottom: 10px; right: 10px;" direction="horizontal">
           <el-button type="primary" plain  @click="logout()" class="bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center">
             注销

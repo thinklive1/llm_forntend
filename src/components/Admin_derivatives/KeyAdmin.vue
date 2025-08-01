@@ -147,7 +147,7 @@ defineExpose({ get_access_keys,get_accKey})
                         @current-change="handle_current_change_click"
         />
       </div>
-        <div class="flex justify-center space-x-3" >
+      <div class="flex justify-center space-x-3" >
         <el-button @click="$emit('closeKey')" id="cancel-btn" style="margin-top: 20px" class=" bg-gray-200 text-gray-800 font-semibold px-4 py-2 rounded-lg hover:bg-gray-300">关闭管理界面</el-button>
       </div>
     </div>

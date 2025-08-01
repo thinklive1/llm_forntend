@@ -108,8 +108,8 @@ defineExpose({get_usage_datas})
     <div class="h-max-3/4 w-1/3 modal-content bg-white rounded-lg shadow-xl mx-4 p-6 relative max-h-120 overflow-scroll">
       <div class="bg-white rounded-lg shadow-sm">
         <div class="flex items-center justify-center content-center">
-        <el-text>当前选择的日期：</el-text>
-        <el-date-picker value-format="YYYY-MM-DD" v-model="selected_dateRef" @change="change_date" type="date" placeholder="Pick a day" :disabled-date="find_disabled_date" :shortcuts="shortcuts" size="default" />
+          <el-text>当前选择的日期：</el-text>
+          <el-date-picker value-format="YYYY-MM-DD" v-model="selected_dateRef" @change="change_date" type="date" placeholder="Pick a day" :disabled-date="find_disabled_date" :shortcuts="shortcuts" size="default" />
         </div>
         <div style="border-top: 1px solid #ccc; margin-top: 4px ;"></div>
         <table class="w-full text-sm text-left text-gray-500 overflow-scroll">
@@ -143,7 +143,7 @@ defineExpose({get_usage_datas})
         />
       </div>
       <div class="flex justify-center items-center">
-      <el-button @click="$emit('closeUsage')" id="cancel-btn" style="margin-top: 20px" class=" bg-gray-200 text-gray-800 font-semibold px-4 py-2 rounded-lg hover:bg-gray-300">关闭查看界面</el-button>
+        <el-button @click="$emit('closeUsage')" id="cancel-btn" style="margin-top: 20px" class=" bg-gray-200 text-gray-800 font-semibold px-4 py-2 rounded-lg hover:bg-gray-300">关闭查看界面</el-button>
       </div>
     </div>
   </div>

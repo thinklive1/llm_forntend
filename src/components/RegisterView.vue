@@ -71,24 +71,24 @@ const register = (rule_formRef: FormInstance) => {
   rule_formRef.validate((isValid) => {
     if(isValid) {
       if (last_req_time.value === 0) {
-      cooldown(last_req_time);//设置请求cd，开发阶段默认不启用，先注释掉
-      axios.post('/v1/auth/register', {
-        username: formRef.username,
-        password: formRef.password,
-        email: formRef.email,
-      }, {headers: {
-          'Content-Type': 'application/json', // 设置请求头
-          'Authorization': undefined,
-        },
-        withCredentials: true // 如果需要发送 cookie
-      }).then(({data}) => {
-            if (data.code===200) {
-              ElMessage.success('注册成功，跳转到登陆页面');
-              router.push('/login')}
-            else ElMessage(data.message);
-          }
-      ) .catch( error => {error_report(error)})
-    }
+        cooldown(last_req_time);//设置请求cd，开发阶段默认不启用，先注释掉
+        axios.post('/v1/auth/register', {
+          username: formRef.username,
+          password: formRef.password,
+          email: formRef.email,
+        }, {headers: {
+            'Content-Type': 'application/json', // 设置请求头
+            'Authorization': undefined,
+          },
+          withCredentials: true // 如果需要发送 cookie
+        }).then(({data}) => {
+              if (data.code===200) {
+                ElMessage.success('注册成功，跳转到登陆页面');
+                router.push('/login')}
+              else ElMessage(data.message);
+            }
+        ) .catch( error => {error_report(error)})
+      }
       else ElMessage.warning('操作过于频繁，请'+last_req_time.value+'秒后继续操作')
     }
     else {
