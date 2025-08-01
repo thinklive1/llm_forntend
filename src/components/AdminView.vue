@@ -45,7 +45,7 @@ const model_infoRef = ref<FormatLlmModel>({//编辑模型信息时的表单信�
 
 const modelsRef= ref<FormatLlmModel[]>([])
 const capabilitiyRef= ref<string>('')
-const capabilitiesRef= ref<string[]>()
+const capabilitiesRef= ref<string[]>([])
 
 //特殊数据
 const paginationRef = ref({//分页组件数据
@@ -172,7 +172,7 @@ const post_model = (formRef: FormInstance) => {//更新和新建模型合用的�
   formRef.validate((isvalid)=> {
         if (isvalid) {
           post_model_impl(formRef)
-        } else ElMessage('请完整填写表单')
+        } else ElMessage.warning('请完整填写表单')
       }
   )
 }
@@ -265,6 +265,7 @@ const UsageRef = ref<any>();
 const TextTestRef = ref<any>();
 const ImageTestRef = ref<any>();
 const open_key_admin = () => {
+  KeyAdminRef.value.get_access_keys();
   isKeyAdminOpen.value = true;
 };
 

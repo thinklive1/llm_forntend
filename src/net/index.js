@@ -1,6 +1,7 @@
 import axios from "axios";
 import {ElMessage} from "element-plus";
 import router from "@/router";
+import {states} from "@/stores/index.js";
 
 const authItemName = "token"
 const req_cd = 3;//操作的最小间隔
@@ -34,8 +35,11 @@ function deleteAccessToken(redirect = true) {
 }
 
 function logout(){
-        deleteAccessToken()
-        ElMessage.success(`退出登录成功，欢迎您再次使用`)
+    deleteAccessToken()
+    sessionStorage.removeItem('username')
+    states.CapInTest=states.KeyInUse=''
+    states.ModelToTest=states.Usages=states.TotalKeys=null
+    ElMessage.success(`退出登录成功，欢迎您再次使用`)
 }
 
 const cooldown = (time) => {

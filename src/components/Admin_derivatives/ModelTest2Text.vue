@@ -2,7 +2,7 @@
 
 import {ref, } from "vue";
 import axios from "axios";
-import {error_report, takeAccessToken} from "@/net/index.js";
+import {error_report, } from "@/net/index.js";
 import {ElMessage, FormInstance, FormRules} from "element-plus";
 import {states} from "@/stores"
 
@@ -45,8 +45,6 @@ interface FormatImageInput {
 }
 
 interface FormatOptionData {
-  images: FormatImageInput[];
-  history: FormatMessage[];
   temperature: number;
   max_tokens: number;
   top_p: number;
@@ -60,30 +58,26 @@ const isResGet = ref<boolean>(false);//是否显示模型回应
 const isUsingOptionData = ref<boolean>(false);//是否使用可选参数
 
 //响应式变量,使用蛇形命名,Ref后缀,表示均为ref声明的响应式数据
-const reqRef = ref<FormatRequestData>({//发给模型的请求
+const request_dataRef = ref<FormatRequestData>({//发给模型的请求
   userMessage: '',
   modelIdentifier: '',
 });
-const mesRef = ref<string>('')//用户输入发给模型的信息
 const response_dataRef = ref<FormatResponseData>();
-const input_dialogRef= ref<FormatMessage[]>(
-    [{role: "user", content: "你好"}, {role: "assistant", content: "你好，有什么可以帮你的吗？"}]
-)
 const option_dataRef = ref<FormatOptionData>({
-      images: [],
-      history: input_dialogRef.value,
       temperature: 0.7,
       max_tokens: 512,
       top_p: 0.9,
       frequency_penalty: 0.0,
     }
 )
-const image_url_to_sendRef = ref<FormatImageInput>({
+const history_dataRef = ref<FormatMessage[]>([{role: "user", content: "你好"}, {role: "assistant", content: "你好，有什么可以帮你的吗？"}]);
+const image_to_sendRef = ref<FormatImageInput>({
   url: ''
 });
 
 //特殊数据
-const rule_formRef = ref<FormInstance>()//用于rul校验
+const rule_formRef1 = ref<FormInstance>()//用于rul校验
+const rule_formRef2 = ref<FormInstance>()//用于rul校验
 const buttonRef = ref()
 const popoverRef = ref()
 const rules = {
@@ -91,15 +85,26 @@ const rules = {
     { required: true, message: '请输入图片url', trigger: ['blur', 'change'] },
     { pattern: '(http|https)://[\\w\\d./?&=#+-]+\\.(jpg|jpeg|png)', message: '必须是图片格式', trigger: ['blur', 'change'] },
   ],
+  temperature: [
+    { required: true, message: '请输入temperature', trigger: 'blur' },
+    {type: 'number', message: '请输入0-1的数值', trigger: ['blur', 'change']}
+  ],
+  max_tokens: [
+    { required: true, message: '请输入max_token', trigger: 'blur' },
+    {type: 'number', message: '请输入0-1的数值', trigger: ['blur', 'change']}
+  ],
+  top_p: [
+    { required: true, message: '请输入top_p', trigger: 'blur' },
+    {type: 'number', message: '请输入0-1的数值', trigger: ['blur', 'change']}
+  ],
+  frequency_penalty: [
+    { required: true, message: '请输入frequency_penalty', trigger: 'blur' },
+    {type: 'number', message: '请输入-2~2的数值', trigger: ['blur', 'change']}
+  ],
 }
 
 const waiting = ()=> {
   return '等待模型回应'
-}
-const timeoutAlert = ()=> {
-  setTimeout(() => {
-    if(isWaitRep.value) alert('模型30秒内未响应，可能出现问题')
-  }, 30000);
 }
 
 //函数,蛇形命名,需要以常见的操作名开头
@@ -120,15 +125,18 @@ const test_entry= () => {//整个组件的入口，将管理组件传来的key�
 }
 
 const send_chat =() => {
-  reqRef.value.userMessage=mesRef.value;
-  reqRef.value.modelIdentifier=states.ModelToTest.modelIdentifier;
-  isWaitRep.value=true;
-  console.log(reqRef);
+  if (request_dataRef.value.userMessage==='') {ElMessage.warning('用户消息不能为空');return;}
+  request_dataRef.value.modelIdentifier=states.ModelToTest.modelIdentifier;
   if (isUsingOptionData.value){
-    reqRef.value = {...reqRef.value,...option_dataRef.value}
+    request_dataRef.value.options = option_dataRef.value;
+    request_dataRef.value.history = history_dataRef.value;
   }
-  timeoutAlert()
-  axios.post('/v1/chat', reqRef.value,{headers: {
+  if (states.CapInTest==='text-to-text') { delete request_dataRef.value.images; }
+  isWaitRep.value=true;
+  const timeoutAlert = setTimeout(() => {
+    if(isWaitRep.value) alert('模型30秒内未响应，可能出现问题')
+  }, 30000);
+  axios.post('/v1/chat', request_dataRef.value,{headers: {
       'Content-Type': 'application/json',
       'ACCESS-KEY': states.KeyInUse,
     },
@@ -136,37 +144,49 @@ const send_chat =() => {
   }).then(({data}) => {
     if (data.code===200) {
       isWaitRep.value=false;
+      clearTimeout(timeoutAlert);
+      console.log('stop timeout alert')
       response_dataRef.value=data.data;
       isResGet.value=true;
     }
-    else ElMessage(data.message)
-  }).catch(error => {error_report(error) })
+    else {ElMessage(data.message); clearTimeout(timeoutAlert);}
+  }).catch(error => {
+    error_report(error);
+    reset_test();
+    clearTimeout(timeoutAlert);
+  })
 }
 
 const send_chat_with_img = (formRef: FormInstance) => {
   formRef.validate((isValid) => {
     if (isValid) {
-      reqRef.value.images=[image_url_to_sendRef.value];
+      request_dataRef.value.images=[image_to_sendRef.value];
       send_chat()
-    }
+    } else  ElMessage.warning('请完整填写表单')
   })
 }
 
 const cancel_change = () => {
-  isUsingOptionData.value=false;
+  reset_test()
   popoverRef.value.hide();
 }
 
-const save_change = () => {
-  isUsingOptionData.value=true;
-  popoverRef.value.hide();
+const save_change = (formRef: FormInstance) => {
+  formRef.validate((isvalid)=> {
+    if (isvalid) {
+      isUsingOptionData.value = true;
+      popoverRef.value.hide();
+    } else ElMessage.warning('请完整填写表单')
+  })
 }
 
 const close_test = () => {
   reset_test()
   states.CapInTest = '';
-  states.ModelToTest = undefined;
+  states.ModelToTest = null;
   isChatOpen.value = false;
+  delete request_dataRef.value.options;
+  delete request_dataRef.value.history;
 }
 
 const reset_test = () => {
@@ -184,31 +204,38 @@ defineExpose({test_entry})
     <div class="modal-content w-1/2 bg-white rounded-lg shadow-xl mx-4 p-6 relative max-h-120 overflow-scroll">
       <el-container class="m-4" direction="vertical">
         <div v-if="isResGet" class=" flex justify-end items-center">
-          <div class="m-4 rounded-lg shadow-lg p-6 w-80 ml-4 flex flex-col shadow-lg" style="margin: 5px">
-            <p class="mb-4">{{ mesRef }}</p>
-          </div>
-          <div class="bg-gray-200 hover:text-black flex items-center justify-center w-15 h-15 font-bold shadow-lg">
-            用户
-          </div>
-        </div>
-        <div class="flex justify-end">
-          <el-image class="max-w-1/3" v-if="isResGet && states.CapInTest==='image-to-text'" :src="image_url_to_sendRef.url"></el-image>
+          <el-row>
+            <div  class="m-4 rounded-lg shadow-lg p-6 w-80 ml-4 flex flex-col shadow-lg text-left" style="margin: 5px">
+              <el-row> <el-text size="default" class="mb-4 text-left">prompt： {{ request_dataRef.userMessage }}</el-text> </el-row>
+              <div v-if="states.CapInTest=='image-to-text' && isResGet">
+                <el-divider style="margin: 5px"/>
+                <el-row > <el-text size="default" line-clamp="5" class="mb-4"  >用户图片url： {{ image_to_sendRef.url }}</el-text> </el-row>
+              </div>
+            </div>
+            <div class=" flex justify-end ">
+              <div class="bg-gray-200 hover:text-black flex items-center justify-center w-15 h-15 font-bold shadow-lg">
+                用户
+              </div>
+            </div>
+          </el-row>
         </div>
         <div v-if="isResGet" class="flex items-center">
-          <div class="bg-gray-200 hover:text-black flex items-center justify-center h-15 font-bold shadow-lg">
+          <el-row>
+          <div class="bg-gray-200 hover:text-black flex items-center justify-center h-15 w-auto font-bold shadow-lg">
             {{ response_dataRef.usedModelIdentifier }}
           </div>
           <div class="m-4 bg-blue-100 bg-white rounded-lg shadow-lg p-6 max-w-3/4 ml-4 flex flex-col" style="margin: 5px">
             <p class="mb-4">{{ response_dataRef.assistantMessage }}</p>
           </div>
+          </el-row>
         </div>
         <div v-if="!isResGet" class="flex justify-end">
           <el-card class=" text-center w-1/3" shadow="always">
             <el-container class="m-auto flex justify-end w-full" direction="vertical">
-              <el-input type="textarea" autosize clearable placeholder="输入测试信息" v-model="mesRef"></el-input>
-              <el-form :rules="rules" :model="image_url_to_sendRef" ref="rule_formRef">
+              <el-input type="textarea" autosize clearable placeholder="输入测试信息" v-model="request_dataRef.userMessage"></el-input>
+              <el-form :rules :model="image_to_sendRef" ref="rule_formRef1">
                 <el-form-item prop="url">
-                  <el-input :maxlength="512" v-if="states.CapInTest==='image-to-text'" placeholder="输入图片url" v-model="image_url_to_sendRef.url"></el-input>
+                  <el-input :maxlength="512" v-if="states.CapInTest==='image-to-text'" placeholder="输入图片url" v-model="image_to_sendRef.url"></el-input>
                 </el-form-item>
               </el-form>
               <el-row class="flex justify-center">
@@ -216,28 +243,30 @@ defineExpose({test_entry})
                   <template #reference>
                     <el-button class="m-2">更多自定义选项</el-button>
                   </template>
-                  <el-form :model="option_dataRef">
+                  <el-form :rules :model="option_dataRef" ref="rule_formRef2">
                     <div class="grid grid-cols-1 gap-4 mb-4 ">
                       <div>
                         <label for="name" class="block text-sm font-medium text-gray-700 mb-1">历史信息</label>
-                        <el-form-item prop="history">
+                        <el-row>
                           <el-container class="w-1/4" direction="vertical">
                             <label for="name" class="block text-sm font-medium text-gray-700 mb-1">角色1</label>
-                            <el-input clearable type="text" size="small" :maxlength="255" :minlength="2" v-model="option_dataRef.history[0].role" id="name" class="w-full border-gray-300 rounded-md shadow-sm" required> </el-input>
+                            <el-input type="text" size="small" :maxlength="255" :minlength="2" v-model="history_dataRef[0].role" id="name" class="w-full border-gray-300 rounded-md shadow-sm" required> </el-input>
                           </el-container>
                           <el-container class="w-3/4" direction="vertical">
                             <label for="name" class="block text-sm font-medium text-gray-700 mb-1">角色1输入</label>
-                            <el-input clearable type="textarea" autosize size="small" :maxlength="255" :minlength="2" v-model="option_dataRef.history[0].content" id="name" class="w-full border-gray-300 rounded-md shadow-sm" required> </el-input>
+                            <el-input type="textarea" autosize size="small" :maxlength="255" :minlength="2" v-model="history_dataRef[0].content" id="name" class="w-full border-gray-300 rounded-md shadow-sm" required> </el-input>
                           </el-container>
+                        </el-row>
+                        <el-row>
                           <el-container class="w-1/4" direction="vertical">
                             <label for="name" class="block text-sm font-medium text-gray-700 mb-1">角色2</label>
-                            <el-input clearable type="text" size="small" :maxlength="255" :minlength="2" v-model="option_dataRef.history[1].role" id="name" class="w-full border-gray-300 rounded-md shadow-sm" required> </el-input>
+                            <el-input clearable type="text" size="small" :maxlength="255" :minlength="2" v-model="history_dataRef[1].role" id="name" class="w-full border-gray-300 rounded-md shadow-sm" required> </el-input>
                           </el-container>
                           <el-container class="w-3/4" direction="vertical">
                             <label for="name" class="block text-sm font-medium text-gray-700 mb-1">角色2输入</label>
-                            <el-input clearable type="textarea" autosize size="small" :maxlength="255" :minlength="2" v-model="option_dataRef.history[1].content" id="name" class="w-full border-gray-300 rounded-md shadow-sm" required> </el-input>
+                            <el-input clearable type="textarea" autosize size="small" :maxlength="255" :minlength="2" v-model="history_dataRef[1].content" id="name" class="w-full border-gray-300 rounded-md shadow-sm" required> </el-input>
                           </el-container>
-                        </el-form-item>
+                        </el-row>
                         <el-divider />
                       </div>
                     </div>
@@ -269,11 +298,11 @@ defineExpose({test_entry})
                     </div>
                   </el-form>
                   <div class="flex justify-center">
-                    <el-button ref="buttonRef" @click="cancel_change">取消更改</el-button>
-                    <el-button type="primary" @click="save_change">保存更改</el-button>
+                    <el-button ref="buttonRef" @click="cancel_change">不发送自定义数据</el-button>
+                    <el-button type="primary" @click="save_change(rule_formRef2)">保存更改</el-button>
                   </div>
                 </el-popover>
-                <el-button v-if="states.CapInTest==='image-to-text'" class="h-full w-1/4 " type="primary" @click="send_chat_with_img(rule_formRef)" >发送</el-button>
+                <el-button v-if="states.CapInTest==='image-to-text'" class="h-full w-1/4 " type="primary" @click="send_chat_with_img(rule_formRef1)" >发送</el-button>
                 <el-button v-if="states.CapInTest==='text-to-text'" class="h-full w-1/4 " type="primary" @click="send_chat" >发送</el-button>
               </el-row>
             </el-container>

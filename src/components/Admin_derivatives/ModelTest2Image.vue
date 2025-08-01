@@ -4,7 +4,7 @@ import axios from "axios";
 import {error_report, takeAccessToken} from "@/net/index.js";
 import {ElMessage, FormInstance, FormRules} from "element-plus";
 import {states} from "@/stores"
-import { Check, Close } from '@element-plus/icons-vue'
+import {Check,Close} from '@element-plus/icons-vue'
 
 // ts接口,接口命名格式为Format开头的驼峰命名
 interface FormatImageInput {
@@ -13,6 +13,8 @@ interface FormatImageInput {
 }
 
 interface FormatOptionData {
+  x_size?: number;
+  y_size?: number;
   size?: string;
   n?: number;
   seed?: number;
@@ -29,11 +31,6 @@ interface FormatRequestData {
   options?: FormatOptionData;
 }
 
-interface FormatSize {
-  x_size: number;
-  y_size: number;
-}
-
 interface FormatResponseData {
   imageUrls: string[];
   actualPrompt: string;
@@ -47,36 +44,27 @@ const isResGet = ref<boolean>(false);//是否显示模型回应
 const isUsingOptionData = ref<boolean>(false);//是否使用可选参数
 
 //响应式变量,使用蛇形命名,Ref后缀,表示均为ref声明的响应式数据
-const sizeRef = ref<FormatSize>({
-  x_size: 1024,
-  y_size: 1024,
-});
 const request_dataRef = ref<FormatRequestData>({//发给模型的请求
   prompt: '',
   modelIdentifier: '',
 });
 const option_dataRef = ref<FormatOptionData>({
+  x_size: 1024,
+  y_size: 1024,
   size: '',
   n: 1,
   seed: 42,
   prompt_extend: true,
   watermark: false,
-  strength: 1
+  strength: 0.5
 })
-const response_dataRef = ref<FormatResponseData>({
-  imageUrls: ['https://dashscope-result-wlcb-acdr-1.oss-cn-wulanchabu-acdr-1.aliyuncs.com/1d/58/20250801/5070f64c/8e234da6-7f5c-4dc0-b32d-a6c72fe24abf43.png?Expires=1754119918&OSSAccessKeyId=LTAI5tKPD3TMqf2Lna1fASuh&Signature=GSHgJOJAr1jx5Xv0F%2F1etk0snf4%3D',
-  'https://dashscope-result-wlcb-acdr-1.oss-cn-wulanchabu-acdr-1.aliyuncs.com/1d/e4/20250801/5070f64c/8e234da6-7f5c-4dc0-b32d-a6c72fe24abf42.png?Expires=1754119918&OSSAccessKeyId=LTAI5tKPD3TMqf2Lna1fASuh&Signature=ph1honTcDQSSWTlJb299Ad6jNRI%3D'],
-  actualPrompt: 'test',
-  usedModelIdentifier: 'ali',
-});
-
-const image_url_to_sendRef = ref<FormatImageInput>({
+const response_dataRef = ref<FormatResponseData>();
+const image_to_sendRef = ref<FormatImageInput>({
   url: ''
 });
 
 //特殊数据
-
-const rule_formRef = ref<FormInstance>()//用于rul校验
+const rule_formRef1 = ref<FormInstance>()//用于校验
 const buttonRef = ref()
 const popoverRef = ref()
 const rules = {
@@ -84,16 +72,32 @@ const rules = {
     { required: true, message: '请输入图片url', trigger: ['blur', 'change'] },
     { pattern: '(http|https)://[\\w\\d./?&=#+-]+\\.(jpg|jpeg|png)', message: '必须是图片格式', trigger: ['blur', 'change'] },
   ],
+  x_size: [
+    { required: true, message: '请输入图像宽度(像素数)', trigger: 'blur' },
+    {type: 'number', message: '请输入512-1440的数值', trigger: ['blur', 'change']}
+  ],
+  y_size: [
+    { required: true, message: '请输入图像高度(像素数)', trigger: 'blur' },
+    {type: 'number', message: '请输入512-1440的数值', trigger: ['blur', 'change']}
+  ],
+  n: [
+    { required: true, message: '请输入生成图像数量', trigger: 'blur' },
+    {type: 'number', message: '请输入1-4的数值', trigger: ['blur', 'change']}
+  ],
+  seed: [
+    { required: true, message: '请输入seed', trigger: 'blur' },
+    {type: 'number', message: '请输入-65536~65536的数值', trigger: ['blur', 'change']}
+  ],
+  strength: [
+    { required: true, message: '请输入修改幅度', trigger: 'blur' },
+    {type: 'number', message: '请输入0-1的数值', trigger: ['blur', 'change']}
+  ],
 }
 
 const waiting = ()=> {
   return '等待模型回应'
 }
-const timeoutAlert = ()=> {
-  setTimeout(() => {
-    if(isWaitRep.value) alert('模型30秒内未响应，可能出现问题')
-  }, 30000);
-}
+
 
 //函数,蛇形命名,需要以常见的操作名开头
 const test_entry= () => {//整个组件的入口，将管理组件传来的key和模型信息存储下来，然后进行之后的测试
@@ -116,12 +120,16 @@ const send_request =() => {
   if (request_dataRef.value.prompt==='') {ElMessage.warning('提示词不能为空');return;}
   request_dataRef.value.modelIdentifier=states.ModelToTest.modelIdentifier;
   isWaitRep.value=true;
-  console.log(sizeRef.value)
   if (isUsingOptionData.value){
-    option_dataRef.value.size = sizeRef.value.x_size + '*' + sizeRef.value.y_size;
+    option_dataRef.value.size = option_dataRef.value.x_size + '*' + option_dataRef.value.y_size;
     request_dataRef.value.options = option_dataRef.value;
+    delete request_dataRef.value.options.x_size;
+    delete request_dataRef.value.options.y_size;
   }
-  timeoutAlert()
+  if (states.CapInTest==='text-to-image') { delete request_dataRef.value.originImage; }
+  const timeoutAlert = setTimeout(() => {
+    if(isWaitRep.value) alert('模型30秒内未响应，可能出现问题')
+  }, 30000);
   axios.post('/v1/generate-image', request_dataRef.value,{headers: {
       'Content-Type': 'application/json',
       'ACCESS-KEY': states.KeyInUse,
@@ -129,12 +137,25 @@ const send_request =() => {
     withCredentials: true, // 如果需要发送 cookie
   }).then(({data}) => {
     if (data.code===200) {
+      clearTimeout(timeoutAlert);
+      console.log('clearTimeout');
       response_dataRef.value=data.data;
+      option_dataRef.value.x_size = option_dataRef.value.y_size=1024;
       isWaitRep.value=false;
       isResGet.value=true;
     }
-    else ElMessage(data.message)
-  }).catch(error => {error_report(error);reset_test(); })
+    else {ElMessage(data.message); clearTimeout(timeoutAlert);}
+  }).catch(error => {error_report(error);reset_test();})
+}
+
+const send_request_with_image =(formRef: FormInstance) => {
+  formRef.validate((isValid) => {
+    if (isValid) {
+      request_dataRef.value.originImage = image_to_sendRef.value;
+      send_request();
+    }
+    else ElMessage.warning('请完整填写表单')
+  })
 }
 
 const cancel_change = () => {
@@ -143,16 +164,21 @@ const cancel_change = () => {
   popoverRef.value.hide();
 }
 
-const save_change = () => {
-  isUsingOptionData.value=true;
-  popoverRef.value.hide();
+const save_change = (formRef: FormInstance) => {
+  formRef.validate((isvalid)=> {
+    if (isvalid) {
+      isUsingOptionData.value=true;
+      popoverRef.value.hide();
+    } else ElMessage.warning('请完整填写表单')
+  })
 }
 
 const close_test = () => {
   reset_test()
   states.CapInTest = '';
-  states.ModelToTest = undefined;
+  states.ModelToTest = null;
   isChatOpen.value = false;
+  delete request_dataRef.value.options;
 }
 
 const reset_test = () => {
@@ -170,25 +196,27 @@ defineExpose({test_entry})
     <div class="modal-content w-1/2 bg-white rounded-lg shadow-xl mx-4 p-6 relative max-h-120 overflow-scroll">
       <el-container class="m-4" direction="vertical">
         <div v-if="isResGet" class=" flex justify-end items-center">
-          <div class="m-4 rounded-lg shadow-lg p-6 w-80 ml-4 flex flex-col shadow-lg" style="margin: 5px">
-            <p class="mb-4">{{ request_dataRef.prompt }}</p>
-          </div>
-          <div class="bg-gray-200 hover:text-black flex items-center justify-center w-15 h-15 font-bold shadow-lg">
-            用户
-          </div>
-        </div>
-        <div class="flex justify-end">
-          <el-text class="max-w-1/3" v-if="isResGet" >{{image_url_to_sendRef.url}}</el-text>
+          <el-row>
+            <div class="m-4 rounded-lg shadow-lg p-6 w-80 ml-4 flex flex-col shadow-lg text-left" style="margin: 5px">
+              <el-row> <el-text size="default" class="mb-4 text-left">prompt： {{ request_dataRef.prompt }}</el-text> </el-row>
+              <div v-if="states.CapInTest=='image-to-image' && isResGet">
+                <el-divider style="margin: 5px"/>
+                <el-row > <el-text size="default" line-clamp="5" class="mb-4"  >用户图片url： {{ image_to_sendRef.url }}</el-text> </el-row>
+              </div>
+            </div>
+            <div class="bg-gray-200 hover:text-black flex items-center justify-center w-15 h-15 font-bold shadow-lg">
+              用户
+            </div>
+          </el-row>
         </div>
 
         <div v-if="isResGet" class="flex">
-          <div class="bg-gray-200 hover:text-black flex h-15 w-15 font-bold shadow-lg">
-            {{ response_dataRef.usedModelIdentifier }}
-          </div>
+          <div class="bg-gray-200 hover:text-black flex h-15 w-15 font-bold shadow-lg"> {{ response_dataRef.usedModelIdentifier }} </div>
           <div class="bg-blue-50 rounded-lg shadow-lg max-w-3/4 flex flex-col" style="margin-left: 5px">
             <el-container direction="vertical">
               <el-row>
-                <el-text>实际使用的prompt： {{response_dataRef.actualPrompt}}</el-text>
+                <el-row> <el-text>实际使用的prompt：</el-text></el-row>
+                <el-text>{{response_dataRef.actualPrompt}}</el-text>
                 <el-divider style="margin: 5px"/>
               </el-row>
               <el-row>
@@ -204,40 +232,49 @@ defineExpose({test_entry})
         <div v-if="!isResGet" class="flex justify-end">
           <el-card class=" text-center w-1/3" shadow="always">
             <el-container class="m-auto flex justify-end w-full" direction="vertical">
-              <el-input type="textarea" autosize clearable placeholder="输入测试信息" v-model="request_dataRef.prompt"></el-input>
-              <el-form v-if="states.CapInTest==='image-to-image'" :rules="rules" :model="image_url_to_sendRef" ref="rule_formRef">
+              <el-input :minlength="1" type="textarea" autosize clearable placeholder="输入prompt" v-model="request_dataRef.prompt"></el-input>
+              <el-form v-if="states.CapInTest==='image-to-image'" :rules="rules" :model="image_to_sendRef" ref="rule_formRef1">
                 <el-form-item prop="url">
-                  <el-input :maxlength="512" placeholder="输入图片url" v-model="image_url_to_sendRef.url"></el-input>
+                  <el-input :maxlength="512" placeholder="输入图片url" v-model="image_to_sendRef.url"></el-input>
                 </el-form-item>
               </el-form>
               <el-row class="flex justify-center">
-                <el-popover class="w-3/4" placement="bottom" title="若不保存更改则不发送任何可选参数!" :width="400" trigger="click" ref="popoverRef">
-                  <template #reference>
-                    <el-button class="m-2">更多自定义选项</el-button>
-                  </template>
+                <el-form :model="option_dataRef" :rules="rules" ref="rule_formRef1">
+                  <el-popover class="w-3/4" placement="bottom" title="若不保存更改则不发送任何可选参数!" :width="400" trigger="click" ref="popoverRef">
+                    <template #reference>
+                      <el-button class="m-2">更多自定义选项</el-button>
+                    </template>
                     <div class="grid grid-cols-4 gap-4 mb-4 ">
                       <el-row class="">
-                      <label class="block text-sm font-medium text-gray-700 mb-1">x-size</label>
-                      <el-input-number v-model="sizeRef.x_size" :max="1440" :min="512" controls-position="right" size="small"/>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">x-size</label>
+                        <el-form-item prop="x_size">
+                          <el-input-number class="max-w-3/4" v-model="option_dataRef.x_size" :max="1440" :min="512" controls-position="right" size="small"/>
+                        </el-form-item>
                       </el-row>
                       <el-row class="">
-                      <label class="block text-sm font-medium text-gray-700 mb-1">y-size</label>
-                        <el-input-number v-model="sizeRef.y_size" :max="1440" :min="512" controls-position="right" size="small"/>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">y-size</label>
+                        <el-form-item prop="y_size">
+                          <el-input-number class="max-w-3/4" v-model="option_dataRef.y_size" :max="1440" :min="512" controls-position="right" size="small"/>
+                        </el-form-item>
                       </el-row>
                       <el-row class="">
                         <label class="block text-sm font-medium text-gray-700 mb-1">图片数</label>
-                        <el-input-number v-model="option_dataRef.n" :max="4" :min="1" controls-position="right" size="small"/>
+                        <el-form-item prop="n">
+                          <el-input-number class="max-w-3/4" v-model="option_dataRef.n" :max="4" :min="1" controls-position="right" size="small"/>
+                        </el-form-item>
                       </el-row>
                       <el-row class="">
                         <label class="block text-sm font-medium text-gray-700 mb-1">种子</label>
-                        <el-input-number v-model="option_dataRef.seed" :max="65536" :min="-65536" controls-position="right" size="small"/>
+                        <el-form-item prop="seed">
+                          <el-input-number class="max-w-3/4" v-model="option_dataRef.seed" :max="65536" :min="-65536" controls-position="right" size="small"/>
+                        </el-form-item>
                       </el-row>
                     </div>
                     <div class="grid grid-cols-4 gap-4 mb-4 ">
                       <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-700 mb-1 text-center">智能改写</label>
                         <div class="flex justify-center w-full">
-                        <el-switch v-model="option_dataRef.prompt_extend" class="mt-2" style="margin-left: 4px" inline-prompt :active-icon="Check" :inactive-icon="Close"/>
+                          <el-switch v-model="option_dataRef.prompt_extend" class="mt-2" style="margin-left: 4px" inline-prompt :active-icon="Check" :inactive-icon="Close"/>
                         </div>
                       </div>
                       <div class="mb-4">
@@ -249,17 +286,22 @@ defineExpose({test_entry})
                       <div v-if="states.CapInTest==='image-to-image'"  class="mb-4">
                         <label class="block text-sm font-medium text-gray-700 mb-1 text-center">修改幅度</label>
                         <div class="flex justify-center w-full">
-                          <el-input-number v-model="option_dataRef.strength" :max="65536" :min="-65536" controls-position="right" size="small"> y_size</el-input-number>
+                          <el-form-item prop="strength">
+                            <el-form-item prop="strength">
+                              <el-input-number v-model="option_dataRef.strength" :max="1.0" :min="0.0" :precision="1" :step="0.1" controls-position="right" size="small"> y_size</el-input-number>
+                            </el-form-item>
+                          </el-form-item>
                         </div>
                       </div>
                     </div>
-                  <div class="flex justify-center" style="margin-top: 5px">
-                    <el-button ref="buttonRef" @click="cancel_change">取消更改</el-button>
-                    <el-button type="primary" @click="save_change">保存更改</el-button>
-                  </div>
-                </el-popover>
+                    <div class="flex justify-center" style="margin-top: 5px">
+                      <el-button ref="buttonRef" @click="cancel_change">取消更改</el-button>
+                      <el-button type="primary" @click="save_change(rule_formRef1)">保存更改</el-button>
+                    </div>
+                  </el-popover>
+                </el-form>
                 <el-button v-if="states.CapInTest==='text-to-image'" class="h-full w-1/4 " type="primary" @click="send_request" >发送</el-button>
-                <el-button v-if="states.CapInTest==='image-to-image'" class="h-full w-1/4 " type="primary" @click="send_request" >发送</el-button>
+                <el-button v-if="states.CapInTest==='image-to-image'" class="h-full w-1/4 " type="primary" @click="send_request_with_image(rule_formRef1)" >发送</el-button>
               </el-row>
             </el-container>
           </el-card>

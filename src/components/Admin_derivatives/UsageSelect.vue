@@ -69,6 +69,7 @@ const paginationRef = ref({
 
 //函数,蛇形命名,需要以常见的操作名开头
 const get_usage_datas = () => {
+  console.log(selected_dateRef.value);
   axios.post('/v1/models/usage',usage_requestRef.value, {headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${takeAccessToken()}`
