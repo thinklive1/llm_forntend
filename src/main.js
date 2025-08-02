@@ -8,7 +8,6 @@ import axios from "axios";
 import {takeAccessToken} from "@/net/index.js";
 
 axios.defaults.baseURL = 'http://127.0.0.1:8060'
-axios.defaults.headers.common['Authorization'] = 'Bearer ' +takeAccessToken();
 axios.defaults.headers.common['Content-Type'] = 'application/json'
 
 const app = createApp(App)

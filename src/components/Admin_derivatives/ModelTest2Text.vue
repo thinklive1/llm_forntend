@@ -62,8 +62,8 @@ const request_dataRef = ref<FormatRequestData>({//发给模型的请求
   userMessage: '',
   modelIdentifier: '',
 });
-const response_dataRef = ref<FormatResponseData>();
-const option_dataRef = ref<FormatOptionData>({
+const response_dataRef = ref<FormatResponseData>();//收到的回应
+const option_dataRef = ref<FormatOptionData>({//可选字段
       temperature: 0.7,
       max_tokens: 512,
       top_p: 0.9,
@@ -71,13 +71,12 @@ const option_dataRef = ref<FormatOptionData>({
     }
 )
 const history_dataRef = ref<FormatMessage[]>([{role: "user", content: "你好"}, {role: "assistant", content: "你好，有什么可以帮你的吗？"}]);
-const image_to_sendRef = ref<FormatImageInput>({
+const image_to_sendRef = ref<FormatImageInput>({//输入图片字段，图生图专用
   url: ''
 });
 
 //特殊数据
 const rule_formRef1 = ref<FormInstance>()//用于rul校验
-const rule_formRef2 = ref<FormInstance>()//用于rul校验
 const buttonRef = ref()
 const popoverRef = ref()
 const rules = {
@@ -184,9 +183,9 @@ const close_test = () => {
   reset_test()
   states.CapInTest = '';
   states.ModelToTest = null;
-  isChatOpen.value = false;
   delete request_dataRef.value.options;
   delete request_dataRef.value.history;
+  isChatOpen.value = false;
 }
 
 const reset_test = () => {
@@ -299,7 +298,7 @@ defineExpose({test_entry})
                   </el-form>
                   <div class="flex justify-center">
                     <el-button ref="buttonRef" @click="cancel_change">不发送自定义数据</el-button>
-                    <el-button type="primary" @click="save_change(rule_formRef2)">保存更改</el-button>
+                    <el-button type="primary" @click="save_change(rule_formRef1)">保存更改</el-button>
                   </div>
                 </el-popover>
                 <el-button v-if="states.CapInTest==='image-to-text'" class="h-full w-1/4 " type="primary" @click="send_chat_with_img(rule_formRef1)" >发送</el-button>

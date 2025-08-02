@@ -1,6 +1,6 @@
 <script setup lang="ts">
 
-import {h, ref, shallowRef} from "vue";
+import { ref } from "vue";
 import axios from "axios";
 import {error_report, takeAccessToken} from "@/net/index.js";
 import {ElMessage} from "element-plus";
@@ -28,7 +28,7 @@ interface UsageReq {
 //响应式变量,使用蛇形命名,Ref后缀,表示均为ref声明的响应式数据
 const usage_data_pageRef = ref<ModelUsage[]>();
 const usage_requestRef = ref<UsageReq>({});
-const selected_dateRef = ref<string>();
+const selected_dateRef = ref<string>();//被选中的日期
 selected_dateRef.value = new Date().toISOString().slice(0, 10)
 
 //特殊数据
@@ -69,7 +69,6 @@ const paginationRef = ref({
 
 //函数,蛇形命名,需要以常见的操作名开头
 const get_usage_datas = () => {
-  console.log(selected_dateRef.value);
   axios.post('/v1/models/usage',usage_requestRef.value, {headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${takeAccessToken()}`

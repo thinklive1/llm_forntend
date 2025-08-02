@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {ref, } from "vue";
 import axios from "axios";
-import {error_report, takeAccessToken} from "@/net/index.js";
+import {error_report } from "@/net/index.js";
 import {ElMessage, FormInstance, FormRules} from "element-plus";
 import {states} from "@/stores"
 import {Check,Close} from '@element-plus/icons-vue'
@@ -48,7 +48,7 @@ const request_dataRef = ref<FormatRequestData>({//发给模型的请求
   prompt: '',
   modelIdentifier: '',
 });
-const option_dataRef = ref<FormatOptionData>({
+const option_dataRef = ref<FormatOptionData>({//可选字段
   x_size: 1024,
   y_size: 1024,
   size: '',
@@ -58,8 +58,8 @@ const option_dataRef = ref<FormatOptionData>({
   watermark: false,
   strength: 0.5
 })
-const response_dataRef = ref<FormatResponseData>();
-const image_to_sendRef = ref<FormatImageInput>({
+const response_dataRef = ref<FormatResponseData>();//收到的回应
+const image_to_sendRef = ref<FormatImageInput>({//输入图片字段，图生图专用
   url: ''
 });
 
@@ -100,7 +100,7 @@ const waiting = ()=> {
 
 
 //函数,蛇形命名,需要以常见的操作名开头
-const test_entry= () => {//整个组件的入口，将管理组件传来的key和模型信息存储下来，然后进行之后的测试
+const test_entry= () => {
   switch (states.CapInTest) {
     case 'text-to-image':
       console.log('开始进行t2i模型测试')
@@ -177,8 +177,8 @@ const close_test = () => {
   reset_test()
   states.CapInTest = '';
   states.ModelToTest = null;
-  isChatOpen.value = false;
   delete request_dataRef.value.options;
+  isChatOpen.value = false;
 }
 
 const reset_test = () => {

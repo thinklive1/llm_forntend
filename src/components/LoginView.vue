@@ -32,7 +32,7 @@ const formRef = reactive<FormatLoginForm>({//用于存储表单数据
 const rules = reactive<FormRules<FormatLoginForm>>({
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 2, max: 20, message: '长度需要在2-20字符间', trigger: 'blur' },
+    { min: 2, max: 50, message: '长度需要在2-50字符间', trigger: 'blur' },
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },

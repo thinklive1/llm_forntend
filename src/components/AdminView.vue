@@ -3,7 +3,7 @@
 import {ElMessage, FormInstance, FormRules} from "element-plus";
 import axios from "axios";
 import {error_report, logout, takeAccessToken} from "@/net/index.js";
-import {defineAsyncComponent, reactive, ref} from "vue";
+import { reactive, ref} from "vue";
 import KeyAdmin from "@/components/Admin_derivatives/KeyAdmin.vue";
 import ModelTest2Text from "@/components/Admin_derivatives/ModelTest2Text.vue";
 import {states} from "@/stores"
@@ -187,7 +187,7 @@ const update_model = (formRef: FormInstance)=> {//由于apikey是不返回的，
   formRef.validate((isvalid)=> {
     if (isvalid) {
       update_model_impl();
-    } else ElMessage('请完整填写表单')
+    } else ElMessage.warning('请完整填写表单')
   })
 }
 
@@ -212,7 +212,10 @@ const update_model_impl = ()=>{
 const delete_model = (i:number)=>{
   model_infoRef.value = modelsRef.value[i];
   console.log('id:'+model_infoRef.value.id+'\n'+'token:'+takeAccessToken());
-  axios.delete('/v1/models/'+model_infoRef.value.id,{
+  axios.delete('/v1/models/'+model_infoRef.value.id,{headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${takeAccessToken()}`
+    },
     withCredentials: true, // 如果需要发送 cookie
   }).then(({data}) => {
     if (data.code===200) {
