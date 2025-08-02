@@ -3,7 +3,6 @@ import ErrorView from '@/components/ErrorView.vue'
 import LoginView from "@/components/LoginView.vue";
 import RegisterView from "@/components/RegisterView.vue";
 import AdminView from "@/components/AdminView.vue";
-import {ElMessage} from "element-plus";
 
 const routes = [
     {
